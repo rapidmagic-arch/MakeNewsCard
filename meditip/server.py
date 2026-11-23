@@ -20,6 +20,7 @@ from .edition import prepare, set_top_order, update_decision, bulk_industry, imp
 from .render import render
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
+from .review_groups import init_groups, list_groups, save_group, delete_group, with_groups
 
 
 def _dates(start, end):
@@ -43,8 +44,10 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     # Recompute only machine proposals for existing edition items on upgrade.
     # prepare() deliberately does not replace human choices or manually edited text.
     with connect(db_path) as con:
+        editorial_defaults=yaml.safe_load(editorial_path.read_text(encoding='utf8')) or {}
+        init_groups(con,editorial_defaults.get('industry_section_keywords'))
         if get_edition(con,edition_id)['status']=='draft':
-            prepare(con, edition_id, yaml.safe_load(editorial_path.read_text(encoding='utf8')))
+            prepare(con, edition_id, with_groups(con,editorial_defaults))
     template_path = str(template_path)
     active = {'edition': edition_id}
     lock = threading.Lock()
@@ -72,6 +75,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                               'issues': [type(exc).__name__ + ': ' + str(exc)[:200]]}
                     with connect(db_path) as con:
                         log_run(con, key, start, end, 'failed', 0, 0, {'mode': mode, 'issues': result['issues']}, edition_id=edition)
+                # IDs are internal provenance, not browser progress logs.
                 collected_ids.extend(result.pop('item_ids',[]))
                 with lock:
                     job['results'].append(result)
@@ -79,7 +83,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             # Preserve existing manual editorial decisions; prepare updates only rule proposals.
             with connect(db_path) as con:
                 rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                prepare(con, edition, rules, extra_ids=collected_ids)
+                prepare(con, edition, with_groups(con,rules), extra_ids=collected_ids)
             with lock:
                 job['state'] = 'finished'
         except Exception as exc:
@@ -147,12 +151,13 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         edition = get_edition(con, active['edition'])
                         items = edition_rows(con, active['edition'])
+                        # Never mix historic global runs or other editions into current counters.
                         runs = [dict(r) for r in con.execute(
                             'SELECT * FROM runs WHERE edition_id=? ORDER BY id DESC LIMIT 30', (active['edition'],))]
                         total_runs = con.execute('SELECT COUNT(*) FROM runs WHERE edition_id=?', (active['edition'],)).fetchone()[0]
                         undated = sum(not item.get('published_at') for item in items)
                         out_of_period = sum(bool(item.get('published_at')) and
-                           not edition['period_start']<=item['published_at']<=edition['period_end'] for item in items)
+                           not edition['period_start'] <= item['published_at'] <= edition['period_end'] for item in items)
                         confirmation = confirm_details(con,active['edition'])
                     self._json({'edition': edition, 'items': items, 'runs': runs,
                                 'confirmation':confirmation,
@@ -168,12 +173,18 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 if p == '/api/settings':
                     with connect(db_path) as con:
                         ed=get_edition(con,active['edition'])
+                        groups=list_groups(con)
                     editorial=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
+                                'review_groups':groups,
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
+                    return
+                if p == '/api/review-groups':
+                    with connect(db_path) as con:
+                        self._json({'groups':list_groups(con)})
                     return
                 if p == '/api/ai/job':
                     with lock:
@@ -348,11 +359,26 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                                 raise ValueError('해당 회차 ID에 이미 다른 기간이 연결되어 있어.')
                             if actual['status']=='draft':
                                 rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                                prepare(con, eid, rules)
+                                prepare(con, eid, with_groups(con,rules))
                         active['edition'] = eid
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with lock, connect(db_path) as con:
+                    if p == '/api/review-groups/save':
+                        group_id=save_group(con,obj)
+                        self._json({'ok':True,'id':group_id,'groups':list_groups(con)})
+                        return
+                    if p == '/api/review-groups/delete':
+                        delete_group(con,obj.get('id'))
+                        self._json({'ok':True,'groups':list_groups(con)})
+                        return
+                    if p == '/api/review-groups/recalculate':
+                        require_draft(con,active['edition'])
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        current_undated=[r['id'] for r in edition_rows(con,active['edition']) if not r['published_at']]
+                        count=prepare(con,active['edition'],with_groups(con,rules),extra_ids=current_undated)
+                        self._json({'ok':True,'candidates':count})
+                        return
                     if p == '/api/industry/bulk':
                         result=bulk_industry(con,active['edition'],obj.get('mode'),obj.get('ids'),obj.get('value'))
                         self._json({'ok':True,**result})

@@ -49,6 +49,15 @@ def test_live_http_workflow(tmp_path,monkeypatch):
     assert status==200 and e['week_label']=='2026-W47' and e['edition']['status']=='draft'
     status,settings=request('GET','/api/settings')
     assert status==200 and not settings['ai_api_available']
+    assert len(settings['review_groups'])==4
+    post={'label':'급여 규칙','target_section':'industry.policy','keywords':['보험급여','약가'],'recommend':False}
+    status,new_group=request('POST','/api/review-groups/save',post,token)
+    assert status==200 and len(new_group['groups'])==5
+    group_id=new_group['id']
+    assert request('POST','/api/review-groups/save',{'label':'bad','target_section':'unsafe','keywords':['x'],'recommend':True},token)[0]==400
+    assert request('POST','/api/review-groups/recalculate',{},token)[0]==200
+    status,removed=request('POST','/api/review-groups/delete',{'id':group_id},token)
+    assert status==200 and len(removed['groups'])==4
     assert request('POST','/api/confirm',{'confirmed_by':'담당자','acknowledged':True})[0]==403
     assert request('POST','/api/ai/review',{'ids':[]},token)[0]==400
     assert request('POST','/api/confirm',{'confirmed_by':'담당자','issue_number':'893','acknowledged':False},token)[0]==400

@@ -101,6 +101,7 @@ def setup(con):
         'rule_section':'TEXT',
         'rule_relevance':'TEXT',
         'rule_recommended':'INTEGER NOT NULL DEFAULT 0',
+        'rule_group_id':'TEXT',
         'detail_reviewed':'INTEGER NOT NULL DEFAULT 0',
         'section_reviewed':'INTEGER NOT NULL DEFAULT 0',
     }.items():
@@ -171,6 +172,6 @@ def edition_rows(con,edition_id):
     return [dict(x) for x in con.execute('''SELECT i.*,d.include_detail,d.top_selected,d.top_rank,
       d.section_override,d.title_override,d.summary_override,d.rule_score,d.rule_reason,
       d.ai_score,d.ai_reason,d.ai_summary,d.ai_section,d.ai_recommended,d.ai_relevance,
-      d.rule_section,d.rule_relevance,d.rule_recommended,d.detail_reviewed,d.section_reviewed
+      d.rule_section,d.rule_relevance,d.rule_recommended,d.rule_group_id,d.detail_reviewed,d.section_reviewed
       FROM decisions d JOIN items i ON i.id=d.item_id
       WHERE d.edition_id=? ORDER BY i.published_at DESC,i.title''',(edition_id,))]

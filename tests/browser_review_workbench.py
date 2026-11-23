@@ -28,7 +28,8 @@ for i in range(208):
 state={'edition':base,'week_label':'2026-W45','items':items,'runs':[],'run_total':0,'undated_count':0,'out_of_period_count':0,'confirmation':None}
 sources={'sources':[{'key':'press','group':'mfds','rss_available':True,'url':'https://www.mfds.go.kr/brd/m_99/list.do'}]}
 settings={'sources':[{'key':'press','group':'mfds','url':'https://www.mfds.go.kr/brd/m_99/list.do'}],
-'industry_section_keywords':{'industry.policy':['고시'],'industry.market':['시장']},'ai_api_available':False}
+'industry_section_keywords':{'industry.policy':['고시'],'industry.market':['시장']},
+'review_groups':[{'id':'policy','label':'정책','target_section':'industry.policy','keywords':['고시'],'recommend':True}], 'ai_api_available':False}
 mock='''<script>
 window.__data = DATA; window.__sources = SOURCES;window.__settings=SETTINGS;window.__calls=[];
 window.confirm=()=>true;
@@ -56,6 +57,14 @@ window.fetch=async function(path,opts){
     }else if(path==='/api/target'){window.__data.edition.top_target=body.count;data={ok:true};}
     else if(path==='/api/ai/review'){data={ok:true,total:body.ids.length};}
     else if(path==='/api/ai/import'){data={analysed:body.items.length};}
+    else if(path==='/api/review-groups/save'){
+      const list=window.__settings.review_groups;const id=body.id||'custom-1';
+      const prev=list.findIndex(x=>x.id===id);const g={...body,id};
+      if(prev>=0)list[prev]=g;else list.push(g);data={ok:true,id,groups:list};
+    }else if(path==='/api/review-groups/delete'){
+      window.__settings.review_groups=window.__settings.review_groups.filter(x=>x.id!==body.id);
+      data={ok:true,groups:window.__settings.review_groups};
+    }else if(path==='/api/review-groups/recalculate'){data={ok:true,candidates:171};}
     else data={ok:true};
   }
   return {ok:status===200,status,json:async()=>JSON.parse(JSON.stringify(data))};
@@ -103,6 +112,35 @@ with sync_playwright() as pl:
     mobile.screenshot(path=str(ROOT/'output'/'review_workbench_mobile.png'),full_page=True)
     assert mobile.locator('.queue-row').count()==12
     assert mobile.evaluate('document.body.scrollWidth<=window.innerWidth+3'), 'mobile horizontally overflows'
+    mobile.locator('.queue-open').first.click()
+    assert mobile.locator('#detailPanel').is_visible(), 'detail must open as an overlay on narrow screens'
+    assert mobile.evaluate("getComputedStyle(document.querySelector('#detailPanel')).position")=='fixed'
+    assert mobile.locator('#detailBackdrop').is_visible()
+    mobile.screenshot(path=str(ROOT/'output'/'review_drawer_mobile_v06.png'))
+    mobile.locator('#closeDetail').click()
+    assert mobile.locator('#detailBackdrop').is_hidden()
+    mobile.locator('[data-view="settings"]').click()
+    mobile.locator('#reviewGroupName').fill('보험·약가')
+    mobile.locator('#reviewGroupTerms').fill('보험급여, 약가')
+    mobile.locator('#reviewGroupSection').select_option('industry.policy')
+    mobile.locator('#saveReviewGroup').click()
+    assert '보험·약가' in mobile.locator('#reviewGroupList').inner_text()
+    mobile.screenshot(path=str(ROOT/'output'/'review_groups_settings_mobile_v06.png'),full_page=True)
+    mobile.locator('#reviewGroupList [data-group-edit="custom-1"]').click()
+    assert mobile.locator('#reviewGroupName').input_value()=='보험·약가'
+    mobile.locator('#reviewGroupList [data-group-delete="custom-1"]').click()
+    assert '보험·약가' not in mobile.locator('#reviewGroupList').inner_text()
+    mobile.locator('#refreshReviewGroups').click()
+    assert '재계산' in mobile.locator('#reviewGroupStatus').inner_text()
     assert not mobileerrs,mobileerrs
+    medium=browser.new_page(viewport={'width':974,'height':880});mediumerrs=[];medium.on('pageerror',lambda e:mediumerrs.append(str(e)))
+    medium.set_content(html,wait_until='load')
+    medium.wait_for_function("document.querySelector('#dashCount').textContent.includes('208')")
+    medium.locator('[data-view=edit]').click()
+    medium.locator('.queue-open').first.click()
+    assert medium.evaluate("getComputedStyle(document.querySelector('#detailPanel')).position")=='fixed'
+    assert medium.locator('#detailPanel').is_visible()
+    medium.screenshot(path=str(ROOT/'output'/'review_drawer_974_v06.png'))
+    assert not mediumerrs,mediumerrs
     browser.close()
 print('WORKBENCH SMOKE PASS: 208 candidates, queue tabs, multi-page select, 13 bulk actions, no silent AI approval, edit, desktop+mobile')
