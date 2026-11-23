@@ -120,7 +120,7 @@ def mfds_list_url(base, page, start, end):
     return urlunsplit((p.scheme, p.netloc, p.path, urlencode(q), ''))
 
 
-def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session=None):
+def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session=None,edition_id=None):
     """Collect metadata; never label a limited or unverified scan as complete."""
     session=session or requests.Session()
     key=spec['key'];grp=spec['group']
@@ -197,11 +197,11 @@ def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session
     except Exception as exc:
         issues.append(type(exc).__name__+': '+str(exc)[:260]);status='failed' if pages==0 else 'partial'
     # Preserve usable earlier pages even if a subsequent page or cross-check fails.
-    for item in records:save_item(con,item)
+    item_ids=[save_item(con,item) for item in records]
     con.commit()
     audit.update(issues=issues,duplicate_rows=duplicate_rows,undated=undated)
-    log_run(con,key,start,end,status,pages,len(records),audit)
-    return {'source':key,'status':status,'pages':pages,'records':len(records),
+    log_run(con,key,start,end,status,pages,len(records),audit,edition_id=edition_id)
+    return {'source':key,'status':status,'pages':pages,'records':len(records),'item_ids':item_ids,
             'duplicate_rows':duplicate_rows,'undated':undated,
             'rss_crosscheck':audit.get('rss_crosscheck'), 'issues':issues}
 

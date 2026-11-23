@@ -58,6 +58,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
 
     def run_collection(keys, mode, start, end, max_pages, edition):
         try:
+            collected_ids=[]
             for key in keys:
                 spec = configured[key]
                 with lock:
@@ -65,19 +66,20 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 try:
                     # A separate SQLite connection per job; no connection is shared across threads.
                     with connect(db_path) as con:
-                        result = collect_source(con, spec, start, end, mode, max_pages)
+                        result = collect_source(con, spec, start, end, mode, max_pages, edition_id=edition)
                 except Exception as exc:
                     result = {'source': key, 'status': 'failed', 'pages': 0, 'records': 0,
                               'issues': [type(exc).__name__ + ': ' + str(exc)[:200]]}
                     with connect(db_path) as con:
-                        log_run(con, key, start, end, 'failed', 0, 0, {'mode': mode, 'issues': result['issues']})
+                        log_run(con, key, start, end, 'failed', 0, 0, {'mode': mode, 'issues': result['issues']}, edition_id=edition)
+                collected_ids.extend(result.pop('item_ids',[]))
                 with lock:
                     job['results'].append(result)
                     job['processed'] += 1
             # Preserve existing manual editorial decisions; prepare updates only rule proposals.
             with connect(db_path) as con:
                 rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                prepare(con, edition, rules)
+                prepare(con, edition, rules, extra_ids=collected_ids)
             with lock:
                 job['state'] = 'finished'
         except Exception as exc:
@@ -145,11 +147,18 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         edition = get_edition(con, active['edition'])
                         items = edition_rows(con, active['edition'])
-                        runs = [dict(r) for r in con.execute('SELECT * FROM runs ORDER BY id DESC LIMIT 30')]
+                        runs = [dict(r) for r in con.execute(
+                            'SELECT * FROM runs WHERE edition_id=? ORDER BY id DESC LIMIT 30', (active['edition'],))]
+                        total_runs = con.execute('SELECT COUNT(*) FROM runs WHERE edition_id=?', (active['edition'],)).fetchone()[0]
+                        undated = sum(not item.get('published_at') for item in items)
+                        out_of_period = sum(bool(item.get('published_at')) and
+                           not edition['period_start']<=item['published_at']<=edition['period_end'] for item in items)
                         confirmation = confirm_details(con,active['edition'])
                     self._json({'edition': edition, 'items': items, 'runs': runs,
                                 'confirmation':confirmation,
-                                'week_label':week_label(edition['period_start'],edition['period_end'])})
+                                'week_label':week_label(edition['period_start'],edition['period_end']),
+                                'run_total':total_runs,'undated_count':undated,
+                                'out_of_period_count':out_of_period})
                     return
                 if p == '/api/editions':
                     with connect(db_path) as con:
@@ -184,7 +193,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         html = confirmed_html(con,active['edition'])
                         if html is None:
-                            html = render(con,active['edition'],template_path)
+                            html = render(con,active['edition'],template_path,preview=(p == '/preview/html'))
                     self._respond(200, html, 'text/html; charset=utf-8',
                                   download=f'newsletter_{active["edition"]}.html' if p == '/export/html' else None)
                     return
@@ -345,7 +354,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 with lock, connect(db_path) as con:
                     if p == '/api/industry/bulk':
-                        result=bulk_industry(con,active['edition'],obj.get('mode'),obj.get('ids'))
+                        result=bulk_industry(con,active['edition'],obj.get('mode'),obj.get('ids'),obj.get('value'))
                         self._json({'ok':True,**result})
                         return
                     if p == '/api/ai/import':

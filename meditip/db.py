@@ -87,6 +87,10 @@ def setup(con):
       WHERE issue_number IS NOT NULL;
     ''')
     # Incremental migration: never drop previously collected articles or editorial decisions.
+    run_columns={row[1] for row in con.execute('PRAGMA table_info(runs)')}
+    if 'edition_id' not in run_columns:
+        con.execute('ALTER TABLE runs ADD COLUMN edition_id TEXT')
+    con.execute('CREATE INDEX IF NOT EXISTS idx_runs_edition ON runs(edition_id,id)')
     edition_columns={row[1] for row in con.execute('PRAGMA table_info(editions)')}
     for name in ('issue_number','confirmed_at','confirmed_by'):
         if name not in edition_columns:
@@ -143,10 +147,10 @@ def save_item(con, item):
     return iid
 
 
-def log_run(con,key,start,end,status,pages,count,detail=None):
+def log_run(con,key,start,end,status,pages,count,detail=None,edition_id=None):
     now=utcnow()
-    con.execute('''INSERT INTO runs(source_key,start_date,end_date,started_at,finished_at,status,pages_scanned,records_seen,detail)
-                 VALUES(?,?,?,?,?,?,?,?,?)''',(key,start,end,now,now,status,pages,count,json.dumps(detail or {},ensure_ascii=False)))
+    con.execute('''INSERT INTO runs(source_key,start_date,end_date,started_at,finished_at,status,pages_scanned,records_seen,detail,edition_id)
+                 VALUES(?,?,?,?,?,?,?,?,?,?)''',(key,start,end,now,now,status,pages,count,json.dumps(detail or {},ensure_ascii=False),edition_id))
     con.commit()
 
 

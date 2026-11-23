@@ -54,16 +54,24 @@ def proposal_for(row):
     return bool(row.get('rule_recommended')),row.get('rule_section') or row['section']
 
 
-def bulk_industry(con,edition_id,mode,ids=None):
+def bulk_industry(con,edition_id,mode,ids=None,value=None):
     """Explicit human action; preserve individually reviewed fields by default."""
     from .workflow import require_draft
     require_draft(con,edition_id)
-    allowed={'apply_recommended','include','exclude','apply_sections'}
+    allowed={'apply_recommended','include','exclude','apply_sections','set_inclusion'}
     if mode not in allowed:raise ValueError('Unknown industry bulk operation')
     rows={r['id']:r for r in edition_rows(con,edition_id) if r['source_group']=='industry'}
     if ids is None: selected=list(rows)
     elif isinstance(ids,list) and len(ids)==len(set(ids)) and len(ids)<=5000 and set(ids)<=set(rows):selected=ids
     else:raise ValueError('Invalid industry item IDs')
+    if mode == 'set_inclusion':
+        if ids is None or not ids or not isinstance(value,bool):
+            raise ValueError('Select specific articles and an inclusion value')
+        for item_id in selected:
+            con.execute('UPDATE decisions SET include_detail=?,detail_reviewed=1 WHERE edition_id=? AND item_id=?',
+                        (int(value),edition_id,item_id))
+        con.commit()
+        return {'updated':len(selected),'protected':0,'not_recommended':0,'examined':len(selected)}
     updated=0;reviewed=0;not_recommended=0
     for item_id in selected:
         row=rows[item_id]
@@ -84,6 +92,11 @@ def bulk_industry(con,edition_id,mode,ids=None):
             include=(mode!='exclude')
             con.execute('UPDATE decisions SET include_detail=?,detail_reviewed=1 WHERE edition_id=? AND item_id=?',
                         (int(include),edition_id,item_id))
+            if mode=='apply_recommended' and not row['section_reviewed']:
+                _,recommended_section=proposal_for(row)
+                if recommended_section in ('industry.policy','industry.market','industry.global','industry.rnd'):
+                    con.execute('UPDATE decisions SET section_override=?,section_reviewed=1 WHERE edition_id=? AND item_id=?',
+                                (recommended_section,edition_id,item_id))
         updated+=1
     con.commit()
     return {'updated':updated,'protected':reviewed,'not_recommended':not_recommended,'examined':len(selected)}
@@ -97,11 +110,18 @@ def rule_score(row, config=None):
         if key.casefold() in row['title'].casefold():score+=bonus;reason+=f' · {key}'
     return score,reason
 
-def prepare(con,edition_id,config=None):
+def prepare(con,edition_id,config=None,extra_ids=None):
     from .workflow import require_draft
     edition=require_draft(con,edition_id)
-    rows=con.execute('''SELECT * FROM items WHERE (published_at BETWEEN ? AND ?) OR published_at IS NULL''',
-                     (edition['period_start'],edition['period_end'])).fetchall()
+    known_ids=list(dict.fromkeys(extra_ids or []))
+    if len(known_ids)>5000 or any(not isinstance(x,str) for x in known_ids):
+        raise ValueError('Invalid collection provenance IDs')
+    sql='SELECT * FROM items WHERE published_at BETWEEN ? AND ?'
+    params=[edition['period_start'],edition['period_end']]
+    if known_ids:
+        sql+=' OR (published_at IS NULL AND id IN ('+','.join('?' for _ in known_ids)+'))'
+        params.extend(known_ids)
+    rows=con.execute(sql,params).fetchall()
     for r in rows:
         score,reason=rule_score(r,config)
         include=int(r['source_group'] in ('mfds','company','clinical','treatment','drug'))
@@ -123,15 +143,8 @@ def prepare(con,edition_id,config=None):
                        WHERE edition_id=? AND item_id=?''',
                     (score,reason,section,relevance,int(recommended),edition_id,r['id']))
     con.commit()
-    # Seed rule-based TOP suggestions only when no human selections exist.
-    if not edition['seeded_top']:
-        proposed=con.execute('''SELECT item_id FROM decisions WHERE edition_id=? ORDER BY rule_score DESC,item_id LIMIT ?''',
-                             (edition_id,edition['top_target'])).fetchall()
-        for i,x in enumerate(proposed,1):
-            con.execute('UPDATE decisions SET top_selected=1,top_rank=? WHERE edition_id=? AND item_id=?',
-                        (i,edition_id,x['item_id']))
-    # An empty edition has nothing to recommend yet: allow initial suggestions
-    # after the first real collection, without overwriting later human decisions.
+    # TOP rank scores are proposals only; never set top_selected without a human action.
+    # Existing editions' stored TOP selections remain untouched.
     if rows:
         con.execute('UPDATE editions SET seeded_top=1 WHERE id=?',(edition_id,))
     con.commit()
@@ -146,8 +159,8 @@ def update_decision(con,edition_id,item_id,changes):
     row=con.execute('''SELECT d.*,i.mandatory,i.source_group FROM decisions d JOIN items i ON i.id=d.item_id
                       WHERE d.edition_id=? AND d.item_id=?''',(edition_id,item_id)).fetchone()
     if row is None:raise ValueError('Edition item not found')
-    if (row['mandatory'] or row['source_group']=='mfds') and changes.get('include_detail') is False:
-        raise ValueError('MFDS/mandatory source cannot be excluded from detail list; classify relevance separately')
+    if row['mandatory'] and changes.get('include_detail') is False:
+        raise ValueError('필수 수록으로 확인된 자료는 제외할 수 없어.')
     if changes.get('section_override') is not None:
         section=str(changes['section_override'])
         permitted={'mfds':'mfds.','industry':'industry.','company':'company.',
@@ -185,6 +198,17 @@ def import_ai(con,edition_id,payload):
     rows={r['id']:r for r in edition_rows(con,edition_id)}
     analyses=payload.get('items',[])
     if not isinstance(analyses,list):raise ValueError('items must be an array')
+    if payload.get('edition_id') not in (None,edition_id):
+        raise ValueError('AI analysis belongs to another edition')
+    ids=[x.get('id') for x in analyses if isinstance(x,dict)]
+    if len(ids)!=len(analyses) or len(set(ids))!=len(ids):
+        raise ValueError('AI analysis item IDs are duplicated or invalid')
+    if payload.get('input_sha256'):
+        from .ai_review import review_payload
+        hashes={review_payload(con,edition_id,ids)['input_sha256'],
+                review_payload(con,edition_id)['input_sha256']}
+        if payload['input_sha256'] not in hashes:
+            raise ValueError('AI analysis references outdated or different source records')
     touched=0
     for item in analyses:
         id=item.get('id')
