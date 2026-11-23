@@ -22,8 +22,6 @@ def test_http_ai_export_import_bulk(tmp_path):
                          'url':f'https://www.dailypharm.com/user/news/{70000+i}',
                          'title':title,'published_at':'2026-11-17'})
         c.commit()
-    from meditip.edition import prepare
-    with connect(db) as c:prepare(c,'week')
     with socket.socket() as s:
         s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
     threading.Thread(target=serve,args=(db,ROOT/'templates'/'892_slots_original.html',ROOT/'editor.html','week',port),daemon=True).start()
@@ -47,6 +45,8 @@ def test_http_ai_export_import_bulk(tmp_path):
     assert code==200
     ai=json.loads(content)
     assert len(ai['items'])==2
+    code,content=req('GET','/api/edition')
+    assert all(x['rule_section'] and x['rule_recommended'] for x in json.loads(content)['items'])
     item=ai['items'][0]
     ai_result={'items':[{'id':item['id'],'score':85,'summary':'내용을 확인해야 하는 AI 제안','section':'industry.global','recommended':True,'reason':'외부 분석 제안'}]}
     assert req('POST','/api/ai/import',ai_result)[0]==403

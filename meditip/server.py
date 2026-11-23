@@ -37,6 +37,10 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     sources_path = Path(sources_path or root/'config'/'sources.yaml')
     editorial_path = Path(editorial_path or root/'config'/'editorial.yaml')
     configured = {s['key']: s for s in source_specs(yaml.safe_load(sources_path.read_text(encoding='utf8')))}
+    # Recompute only machine proposals for existing edition items on upgrade.
+    # prepare() deliberately does not replace human choices or manually edited text.
+    with connect(db_path) as con:
+        prepare(con, edition_id, yaml.safe_load(editorial_path.read_text(encoding='utf8')))
     template_path = str(template_path)
     active = {'edition': edition_id}
     lock = threading.Lock()
