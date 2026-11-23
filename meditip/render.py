@@ -101,7 +101,7 @@ def group_html(rows,group,final=False):
     if group=='industry' and not final:
         candidates=[x for x in rows if x['source_group']=='industry']
         if candidates and not any(x['include_detail'] for x in candidates):
-            parts.insert(0,'<span style="display:block">언론기사 후보 +str(len(candidates))+'건이 있지만 상세 수록으로 선택되지 않았어. 편집 화면에서 수록 여부와 섹션을 확인해.</span>')
+            parts.insert(0,'<span style="display:block">언론기사 후보 '+str(len(candidates))+'건이 있지만 상세 수록으로 선택되지 않았어. 편집 화면에서 수록 여부와 섹션을 확인해.</span>')
         elif not candidates:
             parts.insert(0,'<span style="display:block">이 회차에 등록된 언론기사 후보가 없어. 수집 상태를 확인해 (전체 0건 의미 아님).</span>')
     return ''.join(parts)
