@@ -31,6 +31,7 @@ mock = '''<script>
 window.__seed = SEED;
 window.__sources = SOURCES;
 window.__job = {state:'idle',results:[],processed:0,total:0};
+window.__collectCalls=0;
 window.fetch = async function(path, opts){
  let data={};
  if (!opts) {
@@ -45,6 +46,7 @@ window.fetch = async function(path, opts){
      Object.assign(window.__seed.items.find(x=>x.id===body.item_id),body.changes);
    } else if(path==='/api/target')window.__seed.edition.top_target=body.count;
    else if(path==='/api/collect') {
+     window.__collectCalls++;
      window.__job={state:'finished',processed:body.sources.length,total:body.sources.length,
        results:body.sources.map(k=>({source:k,status:'partial',records:2,pages:1,issues:['offline mock']}))};
      data=window.__job;
@@ -70,10 +72,26 @@ with sync_playwright() as pl:
     assert page.locator('#sourceList input').count()>=8
     page.locator('#allMFDS').click()
     assert page.locator('#sourceList input:checked').count()==8
+    # Prevent confusing HTTP 400 when the date picker does not match the active edition.
+    page.locator('#colStart').fill('2026-11-23')
+    page.locator('#colEnd').fill('2026-11-29')
+    page.locator('#startCollection').click()
+    assert '회차 기간' in page.locator('#collectionResults').inner_text()
+    assert page.evaluate('window.__collectCalls')==0
+    page.wait_for_timeout(2000)  # collection-status polling must not erase a validation error
+    assert '회차 기간' in page.locator('#collectionResults').inner_text()
+    page.locator('#colStart').fill('2026-11-16')
+    page.locator('#colEnd').fill('2026-11-22')
+    page.locator('#colMethod').select_option('rss')
+    page.locator('#startCollection').click()
+    assert 'RSS가 설정되지 않은 사이트' in page.locator('#collectionResults').inner_text()
+    assert page.evaluate('window.__collectCalls')==0
+    page.locator('#colMethod').select_option('board')
     page.locator('#startCollection').click()
     page.wait_for_timeout(150)
     assert '수집 작업 종료' in page.locator('#collectionState').inner_text()
     assert 'partial' in page.locator('#collectionResults').inner_text()
+    assert page.evaluate('window.__collectCalls')==1
     page.screenshot(path=str(ROOT/'output'/'editor_collection_desktop.png'),full_page=True)
     mobile=b.new_page(viewport={'width':390,'height':844})
     mobile.set_content(html,wait_until='load')

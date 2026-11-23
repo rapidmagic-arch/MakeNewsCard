@@ -192,7 +192,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         with connect(db_path) as con:
                             edition = get_edition(con, active['edition'])
                         if (start, end) != (edition['period_start'], edition['period_end']):
-                            raise ValueError('Collection dates must match the active edition. Create/select a new edition first.')
+                            raise ValueError(f'Collection period {start} ~ {end} differs from the active edition period {edition["period_start"]} ~ {edition["period_end"]}. Select [이 기간으로 회차 생성·전환] first.')
                         job.clear()
                         job.update({'state': 'running', 'results': [], 'processed': 0,
                                     'total': len(keys), 'current': None, 'error': None,

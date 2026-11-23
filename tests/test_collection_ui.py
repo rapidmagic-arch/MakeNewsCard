@@ -94,7 +94,9 @@ def test_ui_collect_and_new_edition_without_network(tmp_path, monkeypatch):
     assert req('GET', '/api/sources')[0] == 200
     assert req('POST', '/api/collect', {'sources': ['press']})[0] == 403
     assert req('POST', '/api/collect', {'sources': ['not-configured'], 'start': '2026-11-16', 'end': '2026-11-22'}, token)[0] == 400
-    assert req('POST', '/api/collect', {'sources': ['press'], 'start': '2026-11-20', 'end': '2026-11-22'}, token)[0] == 400
+    status, error = req('POST', '/api/collect', {'sources': ['press'], 'start': '2026-11-20', 'end': '2026-11-22'}, token)
+    assert status == 400
+    assert '2026-11-20' in error['error'] and '2026-11-16' in error['error']
     assert req('POST', '/api/collect', {'sources': ['dailypharm'], 'start': '2026-11-16', 'end': '2026-11-22'}, token)[0] == 400
     status, edition = req('POST', '/api/edition/new', {'start': '2026-11-23', 'end': '2026-11-29'}, token)
     assert status == 200 and edition['edition_id'] == 'edition-2026-11-23-2026-11-29'

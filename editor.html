@@ -25,7 +25,8 @@
 const sec=['mfds.guides','mfds.regulations','mfds.press','mfds.notices','industry.policy','industry.market','industry.global','industry.rnd','industry.unclassified','company.news'];
 async function api(path,payload){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':TOKEN},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw Error(j.error||'저장 실패');return j}
 async function load(){const r=await fetch('/api/edition');if(!r.ok)throw Error('회차 정보를 읽을 수 없어');db=await r.json();render();setEditionFields()}
-let collectionRunning=false, collectionWasActive=false, pollBusy=false;
+let collectionRunning=false, collectionWasActive=false, pollBusy=false, collectionError='', collectionSubmitting=false;
+let sourceCatalog=new Map();
 function setEditionFields(){
  $('activeEdition').textContent='현재 편집 회차: '+db.edition.id+' ('+db.edition.period_start+' ~ '+db.edition.period_end+')';
  // Preserve dates entered by the operator except on first load or edition switch.
@@ -35,15 +36,36 @@ function setEditionFields(){
 async function loadSources(){
  const r=await fetch('/api/sources');if(!r.ok)throw Error('수집 사이트 설정 오류');
  const {sources}=await r.json();
+ sourceCatalog=new Map(sources.map(x=>[x.key,x]));
  $('sourceList').innerHTML=sources.map(x=>'<label><input type="checkbox" data-source="'+esc(x.key)+'" '+(x.key==='press'?'checked':'')+'> '+esc(x.group==='mfds'?'식약처 · '+x.key:'언론 · '+x.key)+'</label>').join('');
 }
 function collectSelected(){return [...document.querySelectorAll('[data-source]:checked')].map(x=>x.dataset.source)}
+function collectError(message){
+ collectionError=message;
+ $('collectionState').textContent='수집 요청 확인 필요';
+ $('collectionResults').innerHTML='<p class="error" role="alert">'+esc(message)+'</p>';
+}
+function collectInputError(keys,start,end,mode,maxPages){
+ if(!keys.length)return '수집할 사이트를 하나 이상 선택해.';
+ if(!db?.edition)return '회차 정보를 읽지 못했어. 화면을 새로고침해.';
+ if(!start||!end||start>end)return '시작일과 종료일을 올바르게 지정해.';
+ if(start!==db.edition.period_start||end!==db.edition.period_end)
+  return '선택한 수집 기간('+start+' ~ '+end+')이 현재 회차 기간('+db.edition.period_start+' ~ '+db.edition.period_end+')과 달라. 먼저 [이 기간으로 회차 생성·전환]을 눌러줘.';
+ if(mode==='rss'){
+  const unsupported=keys.filter(k=>!sourceCatalog.get(k)?.rss_available||sourceCatalog.get(k)?.group!=='mfds');
+  if(unsupported.length)return 'RSS가 설정되지 않은 사이트: '+unsupported.join(', ')+'. [공개 목록] 방식으로 변경하거나 RSS 가능한 식약처 사이트만 선택해.';
+ }
+ if(!Number.isInteger(maxPages)||maxPages<1||maxPages>10)return '최대 조회 페이지는 1~10 사이의 정수로 지정해.';
+ if(keys.some(k=>sourceCatalog.get(k)?.group==='industry')&&!$('mediaRights').checked)
+  return '언론사 수집 전에 사이트 이용 조건 확인 체크박스를 선택해.';
+ return '';
+}
 function showCollection(j){
  const isRunning=j.state==='running';collectionRunning=isRunning;
- $('startCollection').disabled=isRunning;$('newEdition').disabled=isRunning;
- $('collectionState').textContent=({idle:'대기',running:'수집 중',finished:'수집 작업 종료',failed:'수집 작업 오류'}[j.state]||j.state)+' · '+(j.current||'')+' ('+(j.processed||0)+'/'+(j.total||0)+')';
+ $('startCollection').disabled=isRunning||collectionSubmitting;$('newEdition').disabled=isRunning||collectionSubmitting;
+ $('collectionState').textContent=collectionError?'수집 요청 확인 필요':({idle:'대기',running:'수집 중',finished:'수집 작업 종료',failed:'수집 작업 오류'}[j.state]||j.state)+' · '+(j.current||'')+' ('+(j.processed||0)+'/'+(j.total||0)+')';
  $('collectionProgress').max=Math.max(1,j.total||1);$('collectionProgress').value=j.processed||0;
- let html='';
+ let html=collectionError?'<p class="error" role="alert">'+esc(collectionError)+'</p>':'';
  if(j.error)html+='<p class="error">'+esc(j.error)+'</p>';
  for(const x of j.results||[]){html+='<div>'+esc(x.source)+' · <b>'+esc(x.status)+'</b> · '+Number(x.records||0)+'건 / '+Number(x.pages||0)+'페이지</div>';
   if(x.issues?.length)html+='<ul>'+x.issues.map(y=>'<li>'+esc(y)+'</li>').join('')+'</ul>';
@@ -55,13 +77,21 @@ function showCollection(j){
 }
 async function pollCollection(){if(pollBusy)return;pollBusy=true;try{const r=await fetch('/api/collection');if(r.ok)showCollection(await r.json())}catch(err){$('collectionState').textContent='상태 조회 오류: '+err.message}finally{pollBusy=false}}
 $('startCollection').addEventListener('click',async()=>{
- const keys=collectSelected();if(!keys.length){$('collectionState').textContent='수집할 사이트를 선택해.';return}
- try{const result=await api('/api/collect',{sources:keys,start:$('colStart').value,end:$('colEnd').value,method:$('colMethod').value,max_pages:Number($('colPages').value),rights_acknowledged:$('mediaRights').checked});showCollection(result)}
- catch(err){$('collectionState').textContent='실행 오류: '+err.message}
+ if(collectionSubmitting||collectionRunning)return;
+ const keys=collectSelected(),start=$('colStart').value,end=$('colEnd').value;
+ const method=$('colMethod').value,maxPages=Number($('colPages').value);
+ const invalid=collectInputError(keys,start,end,method,maxPages);
+ if(invalid){collectError(invalid);if(db?.edition&&(start!==db.edition.period_start||end!==db.edition.period_end))$('newEdition').focus();return}
+ collectionError='';collectionSubmitting=true;
+ $('startCollection').disabled=true;$('newEdition').disabled=true;
+ $('collectionResults').textContent='';$('collectionState').textContent='수집 요청 전송 중';
+ try{const result=await api('/api/collect',{sources:keys,start,end,method,max_pages:maxPages,rights_acknowledged:$('mediaRights').checked});showCollection(result)}
+ catch(err){collectError('실행 오류: '+err.message)}
+ finally{collectionSubmitting=false;$('startCollection').disabled=collectionRunning;$('newEdition').disabled=collectionRunning}
 });
 $('newEdition').addEventListener('click',async()=>{
  try{const r=await api('/api/edition/new',{start:$('colStart').value,end:$('colEnd').value,target:4});
- $('colStart').value='';$('colEnd').value='';await load();$('collectionState').textContent='회차 전환: '+r.edition_id}
+ $('colStart').value='';$('colEnd').value='';collectionError='';await load();await pollCollection();$('collectionState').textContent='회차 전환: '+r.edition_id}
  catch(err){$('collectionState').textContent='회차 오류: '+err.message}
 });
 $('allMFDS').addEventListener('click',()=>document.querySelectorAll('[data-source]').forEach(x=>x.checked=x.dataset.source==='press'||x.parentElement.textContent.includes('식약처')));
