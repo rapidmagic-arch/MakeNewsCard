@@ -124,6 +124,9 @@ with sync_playwright() as pl:
     assert 'HTTPError: 500' in problem.inner_text()
     assert 'Page coverage unverified' not in problem.inner_text()
     assert page.evaluate("getComputedStyle(document.querySelector('#collectionResults')).overflowY")=='auto'
+    page.evaluate("() => showCollection({state:'finished',edition_id:'previous-week',processed:1,total:1,results:[{source:'guides_staff',status:'failed',records:0}]})")
+    assert page.locator('#collectionResults').is_hidden()
+    assert '대기' in page.locator('#collectionState').inner_text()
     page.locator('[data-view=edit]').click()
     assert page.locator('.top-picker').is_visible()
     page.locator('[data-view=collect]').click()

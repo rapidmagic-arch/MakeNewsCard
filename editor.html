@@ -131,6 +131,8 @@ function collectInputError(keys,start,end,mode,maxPages){
  return '';
 }
 function showCollection(j){
+ // Never present results from a different edition after creating/switching weeks.
+ if(db?.edition && j.edition_id && j.edition_id!==db.edition.id){collectionWasActive=false;j={state:'idle',processed:0,total:0,results:[]}}
  const isRunning=j.state==='running';collectionRunning=isRunning;
  $('startCollection').disabled=isRunning||collectionSubmitting||db?.edition?.status==='confirmed';
  $('newEdition').disabled=isRunning||collectionSubmitting;
