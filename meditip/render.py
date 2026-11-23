@@ -1,6 +1,8 @@
 """Newsletter 892-style renderer. No personalized mailing links are retained."""
 from html import escape
 from pathlib import Path
+import re
+from urllib.parse import parse_qs, urlsplit
 from bs4 import BeautifulSoup
 from .db import edition_rows,get_edition
 
@@ -8,7 +10,8 @@ GROUPS={'mfds.guides':'공무원지침서/민원인안내서',
         'mfds.regulations':'입법·행정예고 / 제개정고시 / 법령',
         'mfds.press':'보도자료','mfds.notices':'공지/공고',
         'industry.policy':'정책','industry.market':'시장',
-        'industry.global':'글로벌','industry.rnd':'연구/개발'}
+        'industry.global':'글로벌','industry.rnd':'연구/개발',
+        'industry.unclassified':'미분류 · 담당자 검토 필요'}
 
 
 def txt(x):return escape(str(x or ''))
@@ -27,9 +30,40 @@ def link(x):
     if urlsplit(url).scheme not in ('http','https'):return txt(effective(x,'title'))
     return f'<a style="color:#1c3854;text-decoration:underline" href="{escape(url,quote=True)}">{txt(effective(x,"title"))}</a>'
 
+def _display_identity(row):
+    """Identifies repeated *display entries*, not records to delete from SQLite.
+
+    MFDS board ID + seq is reliable across tracking/search/page URL parameters.
+    For other links, use exact original headline/date *within the same source*
+    only; do not merge distinct approval events or different news providers.
+    """
+    url = urlsplit(row.get('url') or '')
+    if row.get('source_group') == 'mfds' and url.hostname == 'www.mfds.go.kr':
+        board = re.search(r'/brd/m_(\d+)/view\.do$', url.path)
+        seq = parse_qs(url.query).get('seq', [None])[0]
+        if board and seq:
+            return ('mfds-board-record', board.group(1), seq)
+    title = re.sub(r'\s+', ' ', row.get('title') or '').strip().casefold()
+    day = row.get('published_at')
+    if title and day:
+        return ('exact-headline-day', row.get('source_key'), day, title)
+    return ('record', row['id'])
+
+
+def unique_for_display(items):
+    """Suppress duplicate presentation only. Never change source rows or decisions."""
+    seen = set()
+    for item in items:
+        key = _display_identity(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        yield item
+
+
 def list_html(items,group):
     res=[]
-    for x in items:
+    for x in unique_for_display(items):
         label=txt(x.get('published_at') or '날짜 미확인') if group=='mfds' else txt(x['source_key'])
         res.append('<span style="display:block;padding:3px 0;line-height:1.7;font-size:13px" data-record-id="'+txt(x['id'])+'">'
                    +label+'　'+link(x)+'</span>')
@@ -37,11 +71,21 @@ def list_html(items,group):
 
 def group_html(rows,group):
     parts=[]
-    keys=[x for x in GROUPS if x.startswith(group+'.')]
+    keys=[x for x in GROUPS if x.startswith(group+'.') and x != 'industry.unclassified']
+    if group == 'industry':
+        if any(x['include_detail'] and effective(x,'section') == 'industry.unclassified' for x in rows):
+            keys.append('industry.unclassified')
     for key in keys:
         items=[x for x in rows if x['include_detail'] and effective(x,'section')==key]
         parts.append('<span style="display:block;margin:15px 0 7px;color:#2980b9;font-size:16px;font-weight:bold">'+txt(GROUPS[key])+'</span>')
         parts.append(list_html(items,group))
+    if group == 'industry':
+        candidates = [x for x in rows if x['source_group'] == 'industry']
+        selected = [x for x in candidates if x['include_detail']]
+        if candidates and not selected:
+            parts.insert(0, '<p style="font-size:12px;color:#986b43">언론기사 후보 '+str(len(candidates))+'건이 있지만 상세 수록으로 선택되지 않았어. 편집 화면에서 수록 여부와 섹션을 확인해.</p>')
+        elif not candidates:
+            parts.insert(0, '<p style="font-size:12px;color:#986b43">이 회차에 등록된 언론기사 후보가 없어. 수집 상태를 확인해 (전체 0건 의미 아님).</p>')
     return ''.join(parts)
 
 def approval_table(items,kind):
@@ -69,6 +113,7 @@ def approval_table(items,kind):
 
 
 def top_table(items):
+    items=list(unique_for_display(items))
     if not items:return '<p style="padding:16px;color:#8a5962;font-size:13px">주요 뉴스 선정 대기</p>'
     result=['<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse">']
     for i in range(0,len(items),2):
