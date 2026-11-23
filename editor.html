@@ -1,9 +1,63 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MEDiTIP 뉴스레터 편집기</title>
 <style>
 :root{font-family:system-ui,'Malgun Gothic',sans-serif;color:#183044;background:#eff3f7}*{box-sizing:border-box}body{margin:0}header{background:#123953;color:white;padding:20px 4vw}header h1{font-size:25px;margin:3px 0 7px}header small{color:#d9e7ef}main{max-width:1230px;margin:20px auto;padding:0 16px}.stats{display:flex;flex-wrap:wrap;gap:9px;margin:14px 0}.stat{background:white;border:1px solid #d6e0e7;border-radius:9px;padding:10px 15px;min-width:145px}.stat b{font-size:20px;display:block}.stat small{color:#62798b}.notice{background:#fff3dc;border:1px solid #eed39a;border-radius:8px;padding:12px;margin:12px 0;line-height:1.6;font-size:13px}.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}button,a.button{cursor:pointer;border-radius:7px;padding:8px 11px;border:1px solid #a6bdcc;background:#fff;color:#154760;font-weight:650;text-decoration:none;font-size:12px}button.primary,a.primary{background:#165c7a;color:white;border-color:#165c7a}button:disabled{opacity:.35;cursor:not-allowed}.layout{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(275px,.9fr);gap:14px}.panel{background:white;border:1px solid #d4e1e8;border-radius:10px;overflow:hidden}.panel header{background:white;color:#15374b;border-bottom:1px solid #e1e9ef;padding:15px}.panel h2{font-size:16px;margin:0 0 7px}.panel small{color:#667d8c}.list{padding:12px;max-height:72vh;overflow-y:auto}.item{border:1px solid #d7e2e9;border-radius:9px;margin:0 0 9px;padding:12px}.item h3{font-size:13px;margin:0 0 8px;line-height:1.55}.meta,.hint{font-size:11px;color:#637d8c;line-height:1.65}.tags{display:flex;gap:4px;flex-wrap:wrap;margin:9px 0}.tag{font-size:10px;border-radius:5px;padding:3px 6px;background:#e8f0f5;color:#215d76}.tag.warn{background:#fff0d4;color:#88612a}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}.controls label{font-size:12px;display:flex;align-items:center;gap:4px}.controls input{accent-color:#1c708b}.field{font-size:11px;color:#486278;font-weight:700;margin-top:7px;display:block}input[type=text],input[type=search],input[type=number],select,textarea{border:1px solid #c3d3dd;padding:7px;border-radius:6px;font:12px system-ui,'Malgun Gothic',sans-serif;max-width:100%}textarea{width:100%;min-height:57px;resize:vertical;line-height:1.55}.rankrow{padding:11px 0;border-bottom:1px solid #e4eaf0;font-size:12px;display:flex;gap:8px;align-items:center}.rankrow span{flex:1}.rankrow .num{background:#246c8c;color:white;border-radius:50%;padding:4px 8px;font-weight:bold}.rankrow button{padding:5px 7px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px}.status{font-size:12px;color:#596e7d}.error{color:#a43232}.footer{font-size:11px;color:#667d8c;margin:17px 0}.collector{padding:16px;margin-bottom:14px}.collector-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.collector label{display:block;font-size:12px;font-weight:650;color:#375263;margin-bottom:4px}.collector input[type=date],.collector select{width:100%;padding:8px;border:1px solid #c3d3dd;border-radius:6px;font:13px system-ui}.sources{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:9px 0}.sources label{font-size:12px;font-weight:400;display:flex;gap:5px;align-items:center;margin:0;padding:8px;border-radius:6px;background:#f2f6f9}.collector progress{width:100%;height:12px}.collector .results{font-size:12px;color:#365467;line-height:1.6}.collector .results ul{margin:6px 0 0;padding-left:22px}.collector h2{font-size:16px;margin:0 0 9px}.collector .checkline{display:flex;align-items:center;gap:6px;font-weight:400}.collector .checkline input{margin:0}.industry-tools{padding:14px 16px;margin:15px 0}.industry-counts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:10px 0}.industry-counts .stat{min-width:0;padding:9px}.industry-options{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.industry-options label{font-size:12px;color:#456}.industry-options select{min-width:135px}@media(max-width:800px){.industry-counts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.collector-grid,.sources{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:800px){.layout{grid-template-columns:1fr}.list{max-height:none}header h1{font-size:21px}}
+
+/* MakeNewsCard v0.4: operator UI only; email styling is maintained separately. */
+:root{font-family:'Segoe UI','Malgun Gothic',system-ui,sans-serif;color:#1a2940;background:#f4f7fb}
+body{margin:0;background:#f4f7fb}
+.app-shell{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
+.sidebar{background:#15243a;color:#e3edf9;padding:22px 12px;position:sticky;top:0;height:100vh}
+.brand{font-size:18px;font-weight:800;letter-spacing:-.04em;padding:8px 12px 24px}
+.brand small{display:block;font-size:10px;font-weight:500;color:#9dafc5;letter-spacing:.03em;margin-top:5px}
+.nav-item{width:100%;display:flex;gap:11px;align-items:center;text-align:left;color:#c4d0df;background:none;border:none;border-radius:10px;padding:12px 14px;margin:3px 0;font-size:13px;font-weight:650;cursor:pointer}
+.nav-item:hover,.nav-item[aria-current="page"]{color:#fff;background:#283b56}
+.app-main{min-width:0}.app-main>header{position:relative;background:#fff;color:#172b40;padding:22px 4%;border-bottom:1px solid #e2e9f2}
+.app-main>header small{color:#587089}.app-main>header h1{font-size:22px;font-weight:800;margin:2px 0 5px;letter-spacing:-.025em}
+.app-main main{max-width:1400px;margin:0 auto;padding:24px 3% 60px}
+.view-panel[hidden]{display:none!important}.view-title{font-size:20px;margin:0 0 6px;color:#172b40;font-weight:800;letter-spacing:-.02em}.view-subtitle{font-size:13px;color:#62758b;margin:0 0 22px;line-height:1.6}
+.panel,.stat,.surface{background:#fff;border:1px solid #e1e8f1;border-radius:15px;box-shadow:0 2px 12px rgba(27,56,91,.035)}
+.panel{overflow:hidden}.panel header{background:#fff;color:#24384d;border-bottom:1px solid #e8eef5}
+.stat{min-width:0;flex:1;padding:16px 18px}.stat b{font-size:23px;color:#163c67}.stat small{color:#738398}
+.actions{gap:9px}button,a.button{border-radius:9px;padding:10px 14px;border:1px solid #cfdbea;background:#fff;color:#21517a;font-size:13px}
+button.primary,a.primary{background:#1766a3;border-color:#1766a3;color:white}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #69abed;outline-offset:2px}
+input[type=text],input[type=search],input[type=number],input[type=date],select,textarea{padding:9px;border:1px solid #cbd8e7;border-radius:8px;background:white;color:#1d3148}
+.notice{background:#fff9eb;border:1px solid #efdab4;border-radius:12px;color:#6d5b3d;margin:0 0 16px}
+.collector,.industry-tools{padding:20px}.collector-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.item{border-radius:11px;border-color:#e1e9f2;padding:15px}.item h3{font-size:14px}
+.layout{grid-template-columns:minmax(0,2.15fr) minmax(280px,.85fr)}
+.section-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:20px 0 10px}
+.dashboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}
+.dashboard-grid .surface{padding:18px}.surface strong{font-size:19px}.surface small{display:block;color:#728398;font-size:12px;margin-bottom:8px}
+.airy{padding:20px}.meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.iframe-preview{width:100%;min-height:600px;border:1px solid #dbe4ee;border-radius:12px;background:#fff}
+.muted{color:#718198;font-size:12px}.pill{display:inline-block;border-radius:100px;background:#e9f2fa;color:#27618f;padding:5px 11px;font-size:12px}
+.form-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.form-row>label{display:block;flex:1;min-width:150px;font-size:13px;font-weight:650}
+.form-row input{display:block;width:100%;margin-top:6px}
+.review-answer{white-space:pre-wrap;background:#f5f8fc;padding:12px;border-radius:10px;line-height:1.65;font-size:13px;min-height:44px}
+settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;line-height:1.8}
+.hidden-when-locked{display:block}.top-picker{max-width:360px;display:flex;gap:8px;align-items:center}.top-picker select{flex:1}
+@media(max-width:1000px){.app-shell{grid-template-columns:1fr}.sidebar{height:auto;position:static;padding:10px 16px;display:flex;gap:8px;align-items:center;overflow-x:auto}.brand{padding:4px 12px 4px 0;min-width:120px}.nav-item{width:auto;white-space:nowrap;margin:0}.dashboard-grid{grid-template-columns:1fr 1fr}.layout{grid-template-columns:1fr}}
+@media(max-width:660px){.sidebar{flex-wrap:wrap}.nav-item{font-size:12px;padding:8px}.brand small{display:none}.app-main main{padding:16px 12px}.dashboard-grid,.meta-grid{grid-template-columns:1fr}.collector-grid,.sources{grid-template-columns:repeat(2,minmax(0,1fr))}.iframe-preview{min-height:420px}}
 </style></head>
-<body><header><div style="letter-spacing:.13em;font-size:12px;font-weight:800;color:#bedae8">MEDiTIP • LOCAL EDITOR</div><h1>뉴스레터 후보 수집·편집 보드</h1><small>수집 원본 보존 · 규칙 기반 1차 추천 · 담당자 선택 · 892호 HTML 생성</small></header>
-<main><section class="panel collector" aria-label="실제 자료 수집">
+<body><div class="app-shell"><aside class="sidebar" aria-label="업무 메뉴">
+<div class="brand">MakeNewsCard<small>MEDiTIP NEWSLETTER</small></div>
+<button class="nav-item" data-view="dashboard" aria-current="page">▦ 대시보드</button>
+<button class="nav-item" data-view="collect">↧ 자료 수집</button>
+<button class="nav-item" data-view="edit">≡ 기사 검토·편집</button>
+<button class="nav-item" data-view="preview">▤ 미리보기·확정</button>
+<button class="nav-item" data-view="settings">⚙ 환경설정</button>
+</aside><div class="app-main"><header><h1 id="pageHeading">뉴스레터 대시보드</h1><small id="headerEdition">회차를 불러오는 중</small>
+<div class="top-picker"><label class="muted" for="editionPicker">회차 선택</label><select id="editionPicker" aria-label="작업 회차 선택"></select></div></header>
+<main><section class="view-panel" id="view-dashboard">
+<h2 class="view-title">현재 회차</h2><p class="view-subtitle">수집 현황과 편집·확정 상태를 확인하고 다음 업무로 이동해.</p>
+<div class="dashboard-grid"><div class="surface"><small>자료 수집 기간</small><strong id="dashPeriod">—</strong></div>
+<div class="surface"><small>수집 후보 / 실제 수록</small><strong id="dashCount">—</strong></div>
+<div class="surface"><small>회차 상태</small><strong id="dashStatus">—</strong></div></div>
+<div class="surface airy"><h3>작업 흐름</h3><p class="muted">자료 수집 → 분야별 추천 확인 → 담당자 편집 → 미리보기 → 최종 확정</p>
+<div class="actions"><button data-go="collect" class="primary">자료 수집</button><button data-go="edit">기사 검토</button><button data-go="preview">출력 확인</button></div>
+<p id="dashAlert" class="status" role="status"></p></div></section>
+<section class="view-panel" id="view-collect" hidden><h2 class="view-title">자료 수집</h2><p class="view-subtitle">회차 기간과 출처를 정하고 수집 결과를 확인해.</p>
+<section class="panel collector" aria-label="실제 자료 수집">
   <h2>실제 자료 수집</h2>
   <p class="hint">지정된 회차의 자료를 로컬 SQLite에 수집해. 현재 RSS는 신규 글 발견용, 목록 방식은 부분 수집이며 전체 확보를 보증하지 않아.</p>
   <div class="collector-grid">
@@ -18,24 +72,50 @@
   <label class="checkline"><input id="mediaRights" type="checkbox"> 언론사 공개 페이지 이용 조건을 확인했어 (언론사 수집 시 필요)</label>
   <div class="actions"><button class="primary" id="startCollection">선택한 사이트 실제 수집 시작</button><span id="collectionState" class="status" role="status" aria-live="polite">대기</span></div>
   <progress id="collectionProgress" value="0" max="1"></progress><div id="collectionResults" class="results"></div>
-</section><div class="notice"><b>검토용 초안입니다.</b> 일부 출처는 수집 누락 검증이 끝나지 않았습니다. AI 서비스 연동은 기본 비활성화되어 있으며, 현재 추천 점수는 <b>규칙 기반</b>입니다. 본 프로그램은 메일을 발송하지 않습니다.</div><section class="panel industry-tools" aria-label="언론기사 분류·추천·일괄편집">
+</section><div class="surface airy" style="margin-top:16px"><h3>새 회차 만들기 (선택)</h3><p class="muted">같은 기간에 특별호를 만들려면 다른 회차 ID를 지정해. 기본값은 기간으로 생성돼.</p>
+<div class="form-row"><label>회차 ID<input type="text" id="newEditionId" placeholder="예: newsletter-2026-special"></label><label>회차 제목<input type="text" id="newEditionTitle" placeholder="기본값: 수집 기간"></label></div></div></section>
+<section class="view-panel" id="view-edit" hidden><h2 class="view-title">기사 검토·편집</h2><p class="view-subtitle">추천은 후보야. 본문 수록과 주요 뉴스 선정은 별도 결정으로 관리해.</p>
+<div class="notice">AI와 규칙 기반 분석 결과는 검토용 제안이며, 확정 여부는 담당자가 선택해.</div><section class="panel industry-tools" aria-label="언론기사 분류·추천·일괄편집">
   <h2 style="font-size:16px;margin:0 0 8px">언론기사 후보 분류 및 일괄 수록</h2>
   <p class="hint">규칙 제안은 기사 제목·저장된 요약의 키워드로 생성하며 AI 판정이 아닙니다. ChatGPT 분석 결과를 JSON으로 가져오면 그 제안을 우선 표시합니다. 일괄 작업은 개별 수동 편집한 항목을 보호합니다.</p>
   <div class="industry-counts" id="industryCounts"></div>
-  <div class="industry-options"><label for="industrySection">후보 분야</label><select id="industrySection"><option value="all">언론 전체</option><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구/개발</option><option value="industry.unclassified">미분류</option></select><label><input type="checkbox" id="recommendOnly">추천만 보기</label><label><input type="checkbox" id="detailOnly">상세 수록만 보기</label></div>
-  <div class="actions"><button class="primary" id="applyRecommended">현재 분야 추천 일괄 수록</button><button id="applySections">추천 분야 일괄 반영</button><button id="includeIndustry">현재 분야 전체 수록</button><button id="excludeIndustry">현재 분야 전체 제외</button><a class="button" href="/export/ai" download>GPT 분석용 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택" style="font-size:12px;max-width:200px"><button id="importAi">GPT 분석 결과 가져오기</button></div>
+  <div class="industry-options"><label for="industrySection">기사 분야</label><select id="industrySection"><option value="all">언론 전체</option><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구/개발</option><option value="industry.unclassified">미분류</option></select><label><input type="checkbox" id="recommendOnly">추천만 보기</label><label><input type="checkbox" id="detailOnly">상세 수록만 보기</label></div>
+  <div class="actions"><button class="primary" id="applyRecommended">이 분야 추천 기사 수록</button><button id="applySections">추천 분야 일괄 반영</button><button id="includeIndustry">현재 분야 전체 수록</button><button id="excludeIndustry">현재 분야 전체 제외</button><a class="button" href="/export/ai" download>GPT 분석용 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택" style="font-size:12px;max-width:200px"><button id="importAi">GPT 분석 결과 가져오기</button></div>
   <p class="status" id="industryFeedback" role="status" aria-live="polite"></p>
+  <div class="surface airy" style="margin-top:12px"><h3>GPT 검토</h3><p class="muted">API 연결 시 현재 언론 후보를 자동 분석할 수 있어. API 미연결 시 JSON 다운로드·가져오기를 이용해.</p>
+    <div class="actions"><button id="runAi" class="primary">현재 분야 GPT 분석</button><span id="aiJobStatus" role="status" class="status"></span></div>
+    <label class="field" for="askQuestion">선택 기사 관련 검토 질문 (개별 기사의 「GPT 질문 대상」 체크)</label>
+    <textarea id="askQuestion" placeholder="예: 선택한 기사의 시장 관련성을 비교해 줘" maxlength="500"></textarea>
+    <div class="actions"><button id="sendQuestion">선택한 기사에 질문</button></div><div id="askReply" class="review-answer">분석 결과는 원본 사실 확인이 아니라 편집 제안이야.</div>
+  </div>
 </section><div class="stats" id="stats"></div><div class="actions"><input type="search" id="search" placeholder="제목·출처·요약 검색" aria-label="검색"><select id="group"><option value="all">전체 자료</option><option value="mfds">식약처</option><option value="industry">언론기사</option><option value="company">회사 소식</option></select><label style="font-size:12px"><input type="checkbox" id="selectedOnly"> TOP 선택만</label><a class="button primary" href="/export/html" download>뉴스레터 HTML 받기</a><a class="button" href="/export/json" download>편집 데이터 JSON</a><button onclick="window.open('/export/html','_blank')">전체 HTML 미리보기</button></div><div id="feedback" class="status"></div>
-<div class="layout"><section class="panel"><header><h2>섹션별 자료 목록</h2><small>‘상세 수록’과 ‘상단 주요 뉴스’는 독립된 선택이야. 필수 자료는 상세 수록 상태를 유지해.</small></header><div class="list" id="items"></div></section><aside class="panel"><header><h2>상단 주요 뉴스 우선순위</h2><small>기본 4건은 참고값이며 선택 건수에 제한은 없어.</small></header><div style="padding:14px"><label class="field" for="target">이번 호 희망 건수</label><input type="number" min="0" max="100" id="target" style="width:70px"><button id="saveTarget">변경</button><p id="targetHint" class="hint"></p><div id="top"></div><hr style="border:0;border-top:1px solid #e4eaf0"><h2 style="font-size:14px">수집 상태</h2><div id="runs" class="hint"></div></div></aside></div><p class="footer">127.0.0.1 로컬 전용 · 편집 저장은 SQLite에 즉시 반영 · 외부 이메일 발송 기능 없음</p></main>
+<div class="layout"><section class="panel"><header><h2>섹션별 자료 목록</h2><small>‘상세 수록’과 ‘상단 주요 뉴스’는 독립된 선택이야. 필수 자료는 상세 수록 상태를 유지해.</small></header><div class="actions" id="articlePager" style="padding:10px 12px"><button id="prevItems" aria-label="이전 기사 목록">이전</button><span id="pageInfo" class="status" aria-live="polite"></span><button id="nextItems" aria-label="다음 기사 목록">다음</button></div><div class="list" id="items"></div></section><aside class="panel"><header><h2>상단 주요 뉴스 우선순위</h2><small>기본 4건은 참고값이며 선택 건수에 제한은 없어.</small></header><div style="padding:14px"><label class="field" for="target">이번 호 희망 건수</label><input type="number" min="0" max="100" id="target" style="width:70px"><button id="saveTarget">변경</button><p id="targetHint" class="hint"></p><div id="top"></div><hr style="border:0;border-top:1px solid #e4eaf0"><h2 style="font-size:14px">수집 상태</h2><div id="runs" class="hint"></div></div></aside></div></section>
+<section class="view-panel" id="view-preview" hidden><h2 class="view-title">뉴스레터 미리보기·확정</h2><p class="view-subtitle">최종 확정 시 현재 기사 선택과 HTML을 보존해. 확정 후에는 수정할 수 없으며, 메일 발송은 수행하지 않아.</p>
+<div class="surface airy"><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
+<iframe id="newsletterPreview" class="iframe-preview" title="뉴스레터 출력 미리보기" sandbox="allow-same-origin"></iframe></div>
+<div class="surface airy" style="margin-top:16px"><h3>회차 최종 확정</h3><div class="form-row"><label>회차 번호 (선택)<input id="issueNumber" placeholder="예: 893"></label><label>확정 담당자<input id="confirmedBy" placeholder="담당자 이름"></label></div>
+<label class="checkline" style="margin:14px 0"><input id="finalAck" type="checkbox">수집 상태·원문 검증·수록 내용과 로고/연락처 미연결 항목을 검토했어</label>
+<div class="actions"><button id="confirmIssue" class="primary">이 회차 최종 확정</button></div><p id="confirmMessage" class="status" role="status"></p></div></section>
+<section class="view-panel" id="view-settings" hidden><h2 class="view-title">환경설정</h2><p class="view-subtitle">고정 수집원과 분류 규칙을 확인해. 회차별 선택 및 기사 편집은 이 페이지의 설정이 아니야.</p>
+<div class="surface airy"><h3>등록된 수집원</h3><div id="settingSources" class="settings-details"></div><h3>추천 키워드</h3><div id="settingKeywords" class="settings-details"></div>
+<p class="muted">수집원·키워드는 현재 <code>config/sources.yaml</code>과 <code>config/editorial.yaml</code>에서 관리해. 웹 편집은 아직 지원하지 않아.</p><p id="settingAi" class="status"></p></div></section>
+<p class="footer">로컬 전용 · SQLite 자동 저장 · 원본 보존 · 외부 메일 발송 없음</p></main></div></div>
 <script>
-'use strict';const TOKEN='__LOCAL_TOKEN__';let db=null;const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+'use strict';const TOKEN='__LOCAL_TOKEN__';let db=null;const askSelection=new Set();const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sec=['mfds.guides','mfds.regulations','mfds.press','mfds.notices','industry.policy','industry.market','industry.global','industry.rnd','industry.unclassified','company.news'];
+const sectionLabel={'mfds.guides':'식약처 지침·안내서','mfds.regulations':'식약처 고시·법령','mfds.press':'식약처 보도자료','mfds.notices':'식약처 공지·공고','industry.policy':'정책','industry.market':'시장','industry.global':'글로벌','industry.rnd':'연구개발','industry.unclassified':'미분류','company.news':'회사 소식'};
+const sourceLabel={'guides_staff':'공무원지침서','guides_citizen':'민원인안내서','preannouncements':'입법·행정예고','enacted_notices':'제·개정고시','laws':'법령','press':'보도자료','notice':'공지','announcement':'공고','dailypharm':'데일리팜','medisobizanews':'메디소비자뉴스','medicaltimes':'메디칼타임즈','kpanews':'약사공론','yakup':'약업신문'};
+let pageIndex=0;const PAGE_SIZE=12;
 async function api(path,payload){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':TOKEN},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw Error(j.error||'저장 실패');return j}
-async function load(){const r=await fetch('/api/edition');if(!r.ok)throw Error('회차 정보를 읽을 수 없어');db=await r.json();render();setEditionFields()}
+async function load(){const r=await fetch('/api/edition');if(!r.ok)throw Error('회차 정보를 읽을 수 없어');db=await r.json();render();setEditionFields();await loadEditionPicker()}
+async function loadEditionPicker(){const r=await fetch('/api/editions');if(!r.ok)return;const x=await r.json();
+ $('editionPicker').innerHTML=x.editions.map(e=>'<option value="'+esc(e.id)+'" '+(e.id===x.active?'selected':'')+'>'+esc((e.issue_number?'제'+e.issue_number+'호 · ':'')+e.title+' · '+(e.status==='confirmed'?'확정':'초안'))+'</option>').join('')}
+
 let collectionRunning=false, collectionWasActive=false, pollBusy=false, collectionError='', collectionSubmitting=false;
 let sourceCatalog=new Map();
 function setEditionFields(){
- $('activeEdition').textContent='현재 편집 회차: '+db.edition.id+' ('+db.edition.period_start+' ~ '+db.edition.period_end+')';
+ $('activeEdition').textContent='현재 회차: '+db.edition.title+' ('+db.edition.period_start+' ~ '+db.edition.period_end+')';
+ updateDashboard();
  // Preserve dates entered by the operator except on first load or edition switch.
  if(!$('colStart').value)$('colStart').value=db.edition.period_start;
  if(!$('colEnd').value)$('colEnd').value=db.edition.period_end;
@@ -44,7 +124,7 @@ async function loadSources(){
  const r=await fetch('/api/sources');if(!r.ok)throw Error('수집 사이트 설정 오류');
  const {sources}=await r.json();
  sourceCatalog=new Map(sources.map(x=>[x.key,x]));
- $('sourceList').innerHTML=sources.map(x=>'<label><input type="checkbox" data-source="'+esc(x.key)+'" '+(x.key==='press'?'checked':'')+'> '+esc(x.group==='mfds'?'식약처 · '+x.key:'언론 · '+x.key)+'</label>').join('');
+ $('sourceList').innerHTML=sources.map(x=>'<label><input type="checkbox" data-source="'+esc(x.key)+'" '+(x.key==='press'?'checked':'')+'> '+esc((x.group==='mfds'?'식약처 · ':'언론 · ')+(sourceLabel[x.key]||x.key))+'</label>').join('');
 }
 function collectSelected(){return [...document.querySelectorAll('[data-source]:checked')].map(x=>x.dataset.source)}
 function collectError(message){
@@ -97,7 +177,7 @@ $('startCollection').addEventListener('click',async()=>{
  finally{collectionSubmitting=false;$('startCollection').disabled=collectionRunning;$('newEdition').disabled=collectionRunning}
 });
 $('newEdition').addEventListener('click',async()=>{
- try{const r=await api('/api/edition/new',{start:$('colStart').value,end:$('colEnd').value,target:4});
+ try{const r=await api('/api/edition/new',{start:$('colStart').value,end:$('colEnd').value,target:4,edition_id:$('newEditionId').value.trim()||undefined,title:$('newEditionTitle').value.trim()||undefined});
  $('colStart').value='';$('colEnd').value='';collectionError='';await load();await pollCollection();$('collectionState').textContent='회차 전환: '+r.edition_id}
  catch(err){$('collectionState').textContent='회차 오류: '+err.message}
 });
@@ -124,17 +204,24 @@ function render(){
    &&(!recommendedOnly||(x.source_group==='industry'&&isSuggested(x)))
    &&(!detailOnly||(x.source_group==='industry'&&x.include_detail))
    &&(!q||(x.title+' '+x.summary_source+' '+x.source_key).toLowerCase().includes(q)));
- $('items').innerHTML=view.map(x=>'<article class="item" data-id="'+esc(x.id)+'"><h3>'+esc(x.title)+'</h3><div class="meta">'+esc(x.published_at||'날짜 미확인')+' · '+esc(x.source_key)+' · '+esc(x.section)+'</div><div class="tags"><span class="tag">규칙 '+x.rule_score+'점</span><span class="tag">'+esc(x.verification)+'</span>'+(x.source_group==='mfds'?'<span class="tag warn">식약처 상세 목록</span>':'')+(hasAi(x)?'<span class="tag">GPT 분석 제안</span>':x.source_group==='industry'?'<span class="tag">규칙 기반 후보</span>':'')+(x.source_group==='industry'&&isSuggested(x)?'<span class="tag">추천</span>':'')+'</div><div class="hint">'+esc(hasAi(x)?x.ai_reason:x.rule_reason||'')+'</div><div class="controls"><label><input type="checkbox" data-kind="top" '+(x.top_selected?'checked':'')+'> 상단 주요 뉴스</label><label><input type="checkbox" data-kind="detail" '+(x.include_detail?'checked':'')+(x.mandatory?' disabled':'')+'> 상세 수록</label><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer" style="font-size:11px">원문 보기</a></div><label class="field">수록 섹션</label><select data-kind="section">'+sec.filter(y=>x.source_group==='mfds'?y.startsWith('mfds.'):x.source_group==='industry'?y.startsWith('industry.'):x.source_group==='company'?y.startsWith('company.'):false).map(y=>'<option value="'+esc(y)+'" '+(candidateSection(x)===y?'selected':'')+'>'+esc(y)+'</option>').join('')+'</select><label class="field">편집 제목 (원본 제목은 유지)</label><input type="text" data-kind="title" style="width:100%" value="'+esc(x.title_override??x.title)+'"><label class="field">편집 요약</label><textarea data-kind="summary">'+esc(x.summary_override??x.ai_summary??x.summary_source)+'</textarea><button data-kind="save-text">제목·요약 저장</button></article>').join('')||'<p class="status">조건에 맞는 자료 없음. 수집 상태를 확인해.</p>';
+ const pages=Math.max(1,Math.ceil(view.length/PAGE_SIZE));pageIndex=Math.max(0,Math.min(pageIndex,pages-1));
+ const pageRows=view.slice(pageIndex*PAGE_SIZE,(pageIndex+1)*PAGE_SIZE);
+ $('pageInfo').textContent=view.length+'건 · '+(pageIndex+1)+'/'+pages+'페이지';
+ $('prevItems').disabled=pageIndex===0;$('nextItems').disabled=pageIndex>=pages-1;
+ $('items').innerHTML=pageRows.map(x=>'<article class="item" data-id="'+esc(x.id)+'"><h3>'+esc(x.title)+'</h3><div class="meta">'+esc(x.published_at||'날짜 미확인')+' · '+esc(sourceLabel[x.source_key]||x.source_key)+' · '+esc(sectionLabel[x.section]||x.section)+'</div><div class="tags"><span class="tag">규칙 '+x.rule_score+'점</span><span class="tag">'+esc(x.verification)+'</span>'+(x.source_group==='mfds'?'<span class="tag warn">식약처 상세 목록</span>':'')+(hasAi(x)?'<span class="tag">GPT 분석 제안 · '+esc(({relevant:'관련',irrelevant:'비관련',review_needed:'검토 필요'})[x.ai_relevance]||'관련성 미지정')+'</span>':x.source_group==='industry'?'<span class="tag">규칙 기반 후보</span>':'')+(x.source_group==='industry'&&isSuggested(x)?'<span class="tag">추천</span>':'')+'</div><div class="hint">'+esc(hasAi(x)?x.ai_reason:x.rule_reason||'')+'</div><div class="controls"><label><input type="checkbox" data-kind="top" '+(x.top_selected?'checked':'')+'> 주요 뉴스 카드</label><label><input type="checkbox" data-kind="ask" '+(askSelection.has(x.id)?'checked':'')+'> GPT 질문 대상</label><label><input type="checkbox" data-kind="detail" '+(x.include_detail?'checked':'')+(x.mandatory?' disabled':'')+'> 본문에 수록</label><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer" style="font-size:11px">원문 보기</a></div><label class="field">수록 섹션</label><select data-kind="section">'+sec.filter(y=>x.source_group==='mfds'?y.startsWith('mfds.'):x.source_group==='industry'?y.startsWith('industry.'):x.source_group==='company'?y.startsWith('company.'):false).map(y=>'<option value="'+esc(y)+'" '+(candidateSection(x)===y?'selected':'')+'>'+esc(sectionLabel[y]||y)+'</option>').join('')+'</select><label class="field">편집 제목 (원본 제목은 유지)</label><input type="text" data-kind="title" style="width:100%" value="'+esc(x.title_override??x.title)+'"><label class="field">편집 요약</label><textarea data-kind="summary">'+esc(x.summary_override??x.ai_summary??x.summary_source)+'</textarea><button data-kind="save-text">제목·요약 저장</button></article>').join('')||'<p class="status">조건에 맞는 자료 없음. 수집 상태를 확인해.</p>';
  $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+'</span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0?'disabled':'')+'>↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1?'disabled':'')+'>↓</button></div>').join('')||'<p class="status">선택된 TOP 기사 없음</p>';
  $('runs').innerHTML=db.runs.slice(0,8).map(r=>'<div style="margin:6px 0">'+esc(r.source_key)+' · '+esc(r.status)+' · '+r.records_seen+'건</div>').join('')||'수집 실행 이력이 없어.';
+ const locked=db.edition.status==='confirmed';
+ if(locked)document.querySelectorAll('#view-edit [data-kind=top],#view-edit [data-kind=detail],#view-edit [data-kind=section],#view-edit [data-kind=title],#view-edit [data-kind=summary],#view-edit [data-kind=save-text],#view-edit #saveTarget,#view-edit #applyRecommended,#view-edit #applySections,#view-edit #includeIndustry,#view-edit #excludeIndustry,#view-edit #importAi,#view-edit #runAi').forEach(x=>x.disabled=true);
+ updateDashboard();
 }
 async function act(fn){try{await fn();$('feedback').textContent='변경사항 저장 완료';await load()}catch(err){$('feedback').textContent='저장 오류: '+err.message;$('feedback').className='status error'}}
 $('items').addEventListener('change',e=>{const k=e.target.dataset.kind;if(!['top','detail','section'].includes(k))return;const card=e.target.closest('[data-id]');const id=card.dataset.id;act(async()=>{if(k==='top'){const order=ordered().map(x=>x.id);if(e.target.checked)order.push(id);else order.splice(order.indexOf(id),1);await api('/api/top-order',{ids:order})}else await api('/api/decision',{item_id:id,changes:k==='detail'?{include_detail:e.target.checked}:{section_override:e.target.value}})})});
 $('items').addEventListener('click',e=>{if(e.target.dataset.kind!=='save-text')return;const card=e.target.closest('[data-id]');const item_id=card.dataset.id;const title=card.querySelector('[data-kind=title]').value;const summary=card.querySelector('[data-kind=summary]').value;act(()=>api('/api/decision',{item_id,changes:{title_override:title,summary_override:summary}}))});
 $('top').addEventListener('click',e=>{const b=e.target.closest('[data-move]');if(!b)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(b.dataset.id),j=i+Number(b.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
 $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Number($('target').value)})));
-$('industrySection').addEventListener('change',()=>{$('group').value='industry';render()});
-['recommendOnly','detailOnly'].forEach(x=>$(x).addEventListener('change',()=>{$('group').value='industry';render()}));
+$('industrySection').addEventListener('change',()=>{$('group').value='industry';pageIndex=0;render()});
+['recommendOnly','detailOnly'].forEach(x=>$(x).addEventListener('change',()=>{$('group').value='industry';pageIndex=0;render()}));
 async function doBulk(mode){
  const scope=scopeIndustry();if(!scope.length){$('industryFeedback').textContent='해당 분야의 언론 후보가 없어.';return}
  const message={apply_recommended:'추천 기사 일괄 수록',apply_sections:'추천 분야 일괄 반영',include:'전체 수록',exclude:'전체 제외'}[mode];
@@ -148,5 +235,54 @@ $('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').file
   const r=await api('/api/ai/import',result);$('industryFeedback').textContent='GPT 제안 '+r.analysed+'건 등록 · 사용자가 수록 버튼을 눌러야 적용돼';await load();}
  catch(e){$('industryFeedback').textContent='GPT JSON 오류: '+e.message}
 });
-['search','group','selectedOnly'].forEach(x=>$(x).addEventListener(x==='search'?'input':'change',render));Promise.all([loadSources(),load(),pollCollection()]).catch(e=>{$('feedback').textContent=e.message});setInterval(pollCollection,1800);
+const titles={dashboard:'뉴스레터 대시보드',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·최종 확정',settings:'환경설정'};
+function openView(name){if(!titles[name])return;
+ document.querySelectorAll('.view-panel').forEach(x=>x.hidden=x.id!=='view-'+name);
+ document.querySelectorAll('.nav-item').forEach(x=>x.setAttribute('aria-current',x.dataset.view===name?'page':'false'));
+ $('pageHeading').textContent=titles[name];
+ if(name==='preview')refreshPreview();if(name==='settings')loadSettings().catch(e=>{$('settingAi').textContent=e.message});}
+document.querySelectorAll('[data-view],[data-go]').forEach(x=>x.addEventListener('click',()=>openView(x.dataset.view||x.dataset.go)));
+$('editionPicker').addEventListener('change',async()=>{try{await api('/api/edition/select',{edition_id:$('editionPicker').value});
+ $('colStart').value='';$('colEnd').value='';askSelection.clear();await load();refreshPreview()}catch(e){alert(e.message)}});
+function updateDashboard(){if(!db)return;const ed=db.edition;
+ $('dashPeriod').textContent=db.week_label;const n=db.items.length,sel=db.items.filter(x=>x.include_detail).length;
+ $('dashCount').textContent=n+'건 / '+sel+'건';$('dashStatus').textContent=ed.status==='confirmed'?'확정 완료':'편집 중';
+ $('dashAlert').textContent=db.runs.some(x=>x.status==='partial'||x.status==='failed')?'일부 수집 기록이 미완료·실패 상태야. 원문 검증을 확인해.':'수집과 편집 상태를 확인해.';
+ $('headerEdition').textContent=ed.title+' · '+db.week_label+' · '+(ed.status==='confirmed'?'확정':'초안');
+ $('finalState').textContent=ed.status==='confirmed'?'확정본 · '+(ed.confirmed_at||''):'미확정 미리보기 · 실제 발송되지 않아';
+ $('confirmIssue').disabled=ed.status==='confirmed';$('runAi').disabled=ed.status==='confirmed';
+ $('startCollection').disabled=ed.status==='confirmed'||collectionRunning;
+ $('newEdition').disabled=collectionRunning;
+ $('issueNumber').value=ed.issue_number||'';
+}
+function refreshPreview(){$('newsletterPreview').src='/preview/html?refresh='+Date.now()}
+$('reloadPreview').addEventListener('click',refreshPreview);
+$('confirmIssue').addEventListener('click',async()=>{if(!db||db.edition.status==='confirmed')return;
+ if(!$('finalAck').checked){$('confirmMessage').textContent='수집·내용·미연결 항목 검토 확인을 선택해.';return}
+ if(!confirm('이 회차를 확정하면 수정할 수 없어. 현재 HTML과 원본 스냅샷을 고정할까?'))return;
+ try{const result=await api('/api/confirm',{confirmed_by:$('confirmedBy').value.trim(),issue_number:$('issueNumber').value.trim(),acknowledged:true});
+ $('confirmMessage').textContent='확정 완료 · SHA256 '+result.html_sha256.slice(0,12);await load();refreshPreview();}
+ catch(e){$('confirmMessage').textContent='확정 오류: '+e.message;}});
+async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)throw Error('설정 조회 실패');const j=await r.json();
+ $('settingSources').innerHTML=j.sources.map(s=>'<div>'+esc(s.group==='mfds'?'식약처':'언론')+' · '+esc(s.key)+' <span class="muted">'+esc(s.url)+'</span></div>').join('');
+ $('settingKeywords').innerHTML=Object.entries(j.industry_section_keywords).map(([key,terms])=>'<p><b>'+esc(key)+'</b><br>'+terms.map(esc).join(', ')+'</p>').join('');
+ $('settingAi').textContent=j.ai_api_available?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정 · JSON 내보내기·가져오기로 검토 가능';}
+$('items').addEventListener('change',e=>{if(e.target.dataset.kind==='ask'){const id=e.target.closest('[data-id]').dataset.id;
+ if(e.target.checked)askSelection.add(id);else askSelection.delete(id)}});
+$('sendQuestion').addEventListener('click',async()=>{const ids=[...askSelection];$('askReply').textContent='질문 전송 중…';
+ try{const r=await api('/api/ai/ask',{question:$('askQuestion').value,ids});$('askReply').textContent=r.answer+'\n(원문 메타데이터 기반 제안)'}
+ catch(e){$('askReply').textContent='검토 질문 오류: '+e.message}});
+$('runAi').addEventListener('click',async()=>{const ids=scopeIndustry().map(x=>x.id);
+ if(!ids.length){$('aiJobStatus').textContent='후보가 없어.';return}
+ if(!confirm(ids.length+'건을 OpenAI API에 보내 분류 제안을 받을까? API 비용이 발생할 수 있어.'))return;
+ try{await api('/api/ai/review',{ids});$('aiJobStatus').textContent='GPT 분석 중 · '+ids.length+'건'}
+ catch(e){$('aiJobStatus').textContent=e.message}});
+let lastAi='idle';async function pollAiJob(){try{const r=await fetch('/api/ai/job');if(!r.ok)return;const j=await r.json();
+ $('aiJobStatus').textContent=j.state==='running'?'GPT 분석 진행 중 · '+j.total+'건':j.state==='failed'?'GPT 분석 실패 · '+j.error:j.state==='finished'?'GPT 제안 '+j.processed+'건 저장':'';
+ if(lastAi==='running'&&j.state==='finished')await load();lastAi=j.state;}catch(e){}}
+setInterval(pollAiJob,2500);
+ ['search','group','selectedOnly'].forEach(x=>$(x).addEventListener(x==='search'?'input':'change',()=>{pageIndex=0;render()}));
+$('prevItems').addEventListener('click',()=>{pageIndex=Math.max(0,pageIndex-1);render()});
+$('nextItems').addEventListener('click',()=>{pageIndex++;render()});
+Promise.all([loadSources(),load(),pollCollection(),pollAiJob()]).catch(e=>{$('feedback').textContent=e.message});setInterval(pollCollection,1800);
 </script></body></html>
