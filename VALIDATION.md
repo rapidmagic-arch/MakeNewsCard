@@ -61,3 +61,10 @@
 - 기존 중복 URL 출력 방지와 미분류 기사 수록 보완에 대한 모의 회귀 테스트 3개 통과. SQLite 기존 원본과 수동 편집 보존.
 - Chromium 단독 모의 브라우저: 170건 중 한 페이지 12건 표시, 분야 필터, 메뉴 전환, 환경설정, 미리보기 영역, 모바일·데스크톱 렌더링. 수집 화면 모의 테스트도 통과. JS 문법 `node --check` 통과.
 - 실제 Chromium → localhost 페이지 이동은 실행 환경 관리자 정책으로 차단되어 HTTP와 브라우저 모의 테스트로 나눠 수행. OpenAI 실호출, 사용자 Windows DB의 170건 정확도, 전체 MFDS/언론 사이트 수집 완전성, 이메일 클라이언트 발송 품질은 **미검증**.
+
+## 수집 화면 사용성 개선 v0.4.1
+- `python -m pytest -q`: 기존 백엔드 자동 테스트 30건 통과 (로컬 개발 환경).
+- `tests/browser_collection_smoke.py`: 회차 선택 숨김, 기간·ID·제목·생성 버튼 통합, 식약처/언론 토글, 부분 수집 상세 로그 숨김, 0건·HTTP 오류 표시, 스크롤 CSS 확인 (모의 fetch).
+- `tests/browser_workspace_smoke.py`: 170건 모의 데이터, 12건 페이징, 업무 화면 이동, 주요 UI JS 오류 없음.
+- `tests/browser_smoke.py`: 별도 임시 SQLite·로컬 서버 기동 후 7건 기사 TOP 편집 조작 확인.
+- 실제 Windows 데이터·외부 사이트 접속은 이 UI 변경 검증에 사용하지 않음.

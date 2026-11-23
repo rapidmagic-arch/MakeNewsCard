@@ -76,7 +76,22 @@ with sync_playwright() as pl:
     page.wait_for_selector('#sourceList input',timeout=6000)
     assert page.locator('.item').count()==7
     assert page.locator('#sourceList input').count()>=8
-    page.locator('#allMFDS').click()
+    assert not page.locator('.top-picker').is_visible()
+    assert page.locator('.issue-setup #colStart').count()==1
+    assert page.locator('.issue-setup #colEnd').count()==1
+    assert page.locator('.issue-setup #newEditionId').count()==1
+    assert page.locator('.issue-setup #newEditionTitle').count()==1
+    assert page.locator('.issue-setup #newEdition').count()==1
+    page.locator('#toggleMFDS').click()
+    assert page.locator('#sourceList input:checked').count()==8
+    assert page.locator('#toggleMFDS').get_attribute('aria-pressed')=='true'
+    page.locator('#toggleMFDS').click()
+    assert page.locator('#sourceList input:checked').count()==0
+    page.locator('#toggleMedia').click()
+    assert page.locator('#sourceList input:checked').count()==5
+    page.locator('#toggleMedia').click()
+    assert page.locator('#sourceList input:checked').count()==0
+    page.locator('#toggleMFDS').click()
     assert page.locator('#sourceList input:checked').count()==8
     # Prevent confusing HTTP 400 when the date picker does not match the active edition.
     page.locator('#colStart').fill('2026-11-23')
@@ -96,7 +111,22 @@ with sync_playwright() as pl:
     page.locator('#startCollection').click()
     page.wait_for_timeout(150)
     assert '수집 작업 종료' in page.locator('#collectionState').inner_text()
-    assert 'partial' in page.locator('#collectionResults').inner_text()
+    assert page.locator('#collectionResults').is_hidden()  # 2 records/source, partial is not an error log
+    assert '후보 16건' in page.locator('#collectionState').inner_text()
+    page.evaluate("""() => showCollection({state:'finished',processed:3,total:3,results:[
+      {source:'press',status:'partial',records:6,pages:2,issues:['Page coverage unverified']},
+      {source:'guides_staff',status:'partial',records:0,pages:1,issues:['No article links parsed']},
+      {source:'dailypharm',status:'failed',records:0,pages:0,issues:['HTTPError: 500']}
+    ]})""")
+    problem=page.locator('#collectionResults')
+    assert problem.is_visible()
+    assert 'No article links parsed' in problem.inner_text()
+    assert 'HTTPError: 500' in problem.inner_text()
+    assert 'Page coverage unverified' not in problem.inner_text()
+    assert page.evaluate("getComputedStyle(document.querySelector('#collectionResults')).overflowY")=='auto'
+    page.locator('[data-view=edit]').click()
+    assert page.locator('.top-picker').is_visible()
+    page.locator('[data-view=collect]').click()
     assert page.evaluate('window.__collectCalls')==1
     page.screenshot(path=str(ROOT/'output'/'editor_collection_desktop.png'),full_page=True)
     mobile=b.new_page(viewport={'width':390,'height':844})
