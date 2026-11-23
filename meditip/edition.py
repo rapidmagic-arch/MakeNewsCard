@@ -46,7 +46,10 @@ def prepare(con,edition_id,config=None):
         for i,x in enumerate(proposed,1):
             con.execute('UPDATE decisions SET top_selected=1,top_rank=? WHERE edition_id=? AND item_id=?',
                         (i,edition_id,x['item_id']))
-    con.execute('UPDATE editions SET seeded_top=1 WHERE id=?',(edition_id,))
+    # An empty edition has nothing to recommend yet: allow initial suggestions
+    # after the first real collection, without overwriting later human decisions.
+    if rows:
+        con.execute('UPDATE editions SET seeded_top=1 WHERE id=?',(edition_id,))
     con.commit()
     return len(rows)
 
