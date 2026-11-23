@@ -1,0 +1,309 @@
+{
+  "schema_version": "mvp-live-sample-0.2",
+  "issue": {
+    "number": null,
+    "date": null,
+    "label": "11/16~11/22 식약처 자료 수집·매핑 검토용",
+    "status": "draft_not_approved"
+  },
+  "period": {
+    "start": "2026-11-16",
+    "end": "2026-11-22",
+    "basis": "last_completed_monday_to_sunday_test_only"
+  },
+  "collection": {
+    "status": "partial_official_source_test",
+    "source": "MFDS official board/detail pages",
+    "collected_at": "2026-11-23",
+    "is_exhaustive": false,
+    "coverage": {
+      "mfds_guides": "listing_reviewed; pharma item not verified within window",
+      "mfds_regulations": "listing_reviewed; 1 pharma-related item verified",
+      "mfds_notices": "notice_and_announcement_listings_reviewed; not asserted complete",
+      "mfds_press": "first_two_pages_reviewed; six pharma-related items verified",
+      "mfds_enacted_rules": "listing_reviewed; no confirmed new pharma record selected",
+      "mfds_laws": "not_exhaustively_checked",
+      "industry_media": "not_collected",
+      "company_news": "not_collected",
+      "clinical_approvals": "not_collected",
+      "drug_approvals": "not_collected"
+    }
+  },
+  "rules_applied": {
+    "MFDS-01": "relevant MFDS items should be exhaustive in production; this test is PARTIAL",
+    "TOP-01": "4 candidates, mostly from MFDS, no fixed policy/market/global/R&D quota",
+    "TOP-02": "regulatory changes, MFDS events/workshops, GLP-1 development relevance considered",
+    "TOP-03": "candidate recommendation only, awaiting editor confirmation",
+    "CLIN-01": "initial/changed and therapeutic use approvals not yet collected in this step"
+  },
+  "company_news": [],
+  "top4": [
+    {
+      "id": "mfds-20261116-44322",
+      "category": "mfds.regulations",
+      "title": "「의약품 병용금기 성분 등의 지정에 관한 규정」 일부개정고시안 행정예고(공고 제2026-554호)",
+      "published_at": "2026-11-16",
+      "original_url": "https://www.mfds.go.kr/brd/m_209/view.do?seq=44322",
+      "publisher": "식품의약품안전처",
+      "department": "의약품안전평가과",
+      "summary": "의약품 적정사용을 위한 행정예고로, 병용금기 성분 조합 295건 추가·2건 삭제, 특정연령대 금기 성분·임부금기 성분 변경 등이 포함된다. 의견제출 기한은 12월 7일이다. 확정 시행된 고시가 아닌 개정안이다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261117-50499",
+      "category": "mfds.press",
+      "title": "[보도참고자료] 식약처, AI 기반 바이오의약품 품질관리 최신 동향 워크숍 개최",
+      "published_at": "2026-11-17",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50499",
+      "publisher": "식품의약품안전처",
+      "department": "백신검정과",
+      "summary": "식약처가 AI 기반 바이오의약품 품질관리의 최신 동향을 다루는 워크숍 개최 소식을 발표했다. 백신검정과가 담당한 자료이며, 발표 내용·후속 조치는 첨부문서 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261119-50507",
+      "category": "mfds.press",
+      "title": "식약처, GLP-1 계열 비만치료제 온라인 불법판매 등 집중 점검",
+      "published_at": "2026-11-19",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50507",
+      "publisher": "식품의약품안전처",
+      "department": "의약품관리과",
+      "summary": "식약처가 GLP-1 계열 비만치료제의 온라인 불법판매 등을 집중 점검한다는 보도자료를 게시했다. 관련 개발제품 동향 관심사에 해당하며 구체 점검 결과는 첨부자료 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261117-50498",
+      "category": "mfds.press",
+      "title": "[보도참고자료] 디지털의료기기·디지털융합의약품 현장 중심 정책 간담회 개최",
+      "published_at": "2026-11-17",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50498",
+      "publisher": "식품의약품안전처",
+      "department": "디지털의료제지원총괄과",
+      "summary": "디지털융합의약품과 디지털의료기기를 주제로 한 현장 중심 정책 간담회 개최를 알렸다. 정책 논의 세부 내용은 첨부자료 추가 확인 대상이다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    }
+  ],
+  "mfds": {
+    "guides": [],
+    "regulations": [
+      {
+        "id": "mfds-20261116-44322",
+        "category": "mfds.regulations",
+        "title": "「의약품 병용금기 성분 등의 지정에 관한 규정」 일부개정고시안 행정예고(공고 제2026-554호)",
+        "published_at": "2026-11-16",
+        "original_url": "https://www.mfds.go.kr/brd/m_209/view.do?seq=44322",
+        "publisher": "식품의약품안전처",
+        "department": "의약품안전평가과",
+        "summary": "의약품 적정사용을 위한 행정예고로, 병용금기 성분 조합 295건 추가·2건 삭제, 특정연령대 금기 성분·임부금기 성분 변경 등이 포함된다. 의견제출 기한은 12월 7일이다. 확정 시행된 고시가 아닌 개정안이다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      }
+    ],
+    "press": [
+      {
+        "id": "mfds-20261116-50497",
+        "category": "mfds.press",
+        "title": "식약처장, 디지털융합의약품 개발 활성화를 위한 현장의 목소리 청취",
+        "published_at": "2026-11-16",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50497",
+        "publisher": "식품의약품안전처",
+        "department": "디지털의료제품지원총괄과",
+        "summary": "디지털융합의약품 개발 활성화와 관련해 현장 의견을 청취했다는 식약처 보도자료가 게시되었다. 상세 논의 내용은 첨부 자료 추가 확인이 필요하다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      },
+      {
+        "id": "mfds-20261117-50499",
+        "category": "mfds.press",
+        "title": "[보도참고자료] 식약처, AI 기반 바이오의약품 품질관리 최신 동향 워크숍 개최",
+        "published_at": "2026-11-17",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50499",
+        "publisher": "식품의약품안전처",
+        "department": "백신검정과",
+        "summary": "식약처가 AI 기반 바이오의약품 품질관리의 최신 동향을 다루는 워크숍 개최 소식을 발표했다. 백신검정과가 담당한 자료이며, 발표 내용·후속 조치는 첨부문서 확인이 필요하다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      },
+      {
+        "id": "mfds-20261117-50498",
+        "category": "mfds.press",
+        "title": "[보도참고자료] 디지털의료기기·디지털융합의약품 현장 중심 정책 간담회 개최",
+        "published_at": "2026-11-17",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50498",
+        "publisher": "식품의약품안전처",
+        "department": "디지털의료제지원총괄과",
+        "summary": "디지털융합의약품과 디지털의료기기를 주제로 한 현장 중심 정책 간담회 개최를 알렸다. 정책 논의 세부 내용은 첨부자료 추가 확인 대상이다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      },
+      {
+        "id": "mfds-20261118-50504",
+        "category": "mfds.press",
+        "title": "“40년 신뢰의 K-의약품, 인류의 내일로” 제40회 약의 날 기념식 개최",
+        "published_at": "2026-11-18",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50504",
+        "publisher": "식품의약품안전처",
+        "department": "의약품정책과",
+        "summary": "식약처가 제40회 약의 날 기념식 개최 소식을 의약품정책과 보도자료로 발표했다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      },
+      {
+        "id": "mfds-20261119-50507",
+        "category": "mfds.press",
+        "title": "식약처, GLP-1 계열 비만치료제 온라인 불법판매 등 집중 점검",
+        "published_at": "2026-11-19",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50507",
+        "publisher": "식품의약품안전처",
+        "department": "의약품관리과",
+        "summary": "식약처가 GLP-1 계열 비만치료제의 온라인 불법판매 등을 집중 점검한다는 보도자료를 게시했다. 관련 개발제품 동향 관심사에 해당하며 구체 점검 결과는 첨부자료 확인이 필요하다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      },
+      {
+        "id": "mfds-20261120-50514",
+        "category": "mfds.press",
+        "title": "[보도참고] 마약류 진통제는 통증조절이 되지 않는 심한 통증에만 사용해야 합니다",
+        "published_at": "2026-11-20",
+        "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50514",
+        "publisher": "식품의약품안전처",
+        "department": "마약관리과",
+        "summary": "식약처가 마약류 진통제의 적절한 사용에 관한 보도참고자료를 게시했다. 세부 안전사용 지침은 첨부자료 확인이 필요하다.",
+        "verification": "official_detail_checked",
+        "evidence": "MFDS official board / detail page",
+        "content_status": "source_title_and_public_page_checked"
+      }
+    ],
+    "notices": []
+  },
+  "industry": {
+    "policy": [],
+    "market": [],
+    "global": [],
+    "rnd": []
+  },
+  "clinical_approvals": {
+    "records": null,
+    "status": "not_collected"
+  },
+  "drug_approvals": {
+    "records": null,
+    "status": "not_collected"
+  },
+  "records": [
+    {
+      "id": "mfds-20261116-44322",
+      "category": "mfds.regulations",
+      "title": "「의약품 병용금기 성분 등의 지정에 관한 규정」 일부개정고시안 행정예고(공고 제2026-554호)",
+      "published_at": "2026-11-16",
+      "original_url": "https://www.mfds.go.kr/brd/m_209/view.do?seq=44322",
+      "publisher": "식품의약품안전처",
+      "department": "의약품안전평가과",
+      "summary": "의약품 적정사용을 위한 행정예고로, 병용금기 성분 조합 295건 추가·2건 삭제, 특정연령대 금기 성분·임부금기 성분 변경 등이 포함된다. 의견제출 기한은 12월 7일이다. 확정 시행된 고시가 아닌 개정안이다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261116-50497",
+      "category": "mfds.press",
+      "title": "식약처장, 디지털융합의약품 개발 활성화를 위한 현장의 목소리 청취",
+      "published_at": "2026-11-16",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50497",
+      "publisher": "식품의약품안전처",
+      "department": "디지털의료제품지원총괄과",
+      "summary": "디지털융합의약품 개발 활성화와 관련해 현장 의견을 청취했다는 식약처 보도자료가 게시되었다. 상세 논의 내용은 첨부 자료 추가 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261117-50499",
+      "category": "mfds.press",
+      "title": "[보도참고자료] 식약처, AI 기반 바이오의약품 품질관리 최신 동향 워크숍 개최",
+      "published_at": "2026-11-17",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50499",
+      "publisher": "식품의약품안전처",
+      "department": "백신검정과",
+      "summary": "식약처가 AI 기반 바이오의약품 품질관리의 최신 동향을 다루는 워크숍 개최 소식을 발표했다. 백신검정과가 담당한 자료이며, 발표 내용·후속 조치는 첨부문서 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261117-50498",
+      "category": "mfds.press",
+      "title": "[보도참고자료] 디지털의료기기·디지털융합의약품 현장 중심 정책 간담회 개최",
+      "published_at": "2026-11-17",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50498",
+      "publisher": "식품의약품안전처",
+      "department": "디지털의료제지원총괄과",
+      "summary": "디지털융합의약품과 디지털의료기기를 주제로 한 현장 중심 정책 간담회 개최를 알렸다. 정책 논의 세부 내용은 첨부자료 추가 확인 대상이다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261118-50504",
+      "category": "mfds.press",
+      "title": "“40년 신뢰의 K-의약품, 인류의 내일로” 제40회 약의 날 기념식 개최",
+      "published_at": "2026-11-18",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50504",
+      "publisher": "식품의약품안전처",
+      "department": "의약품정책과",
+      "summary": "식약처가 제40회 약의 날 기념식 개최 소식을 의약품정책과 보도자료로 발표했다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261119-50507",
+      "category": "mfds.press",
+      "title": "식약처, GLP-1 계열 비만치료제 온라인 불법판매 등 집중 점검",
+      "published_at": "2026-11-19",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50507",
+      "publisher": "식품의약품안전처",
+      "department": "의약품관리과",
+      "summary": "식약처가 GLP-1 계열 비만치료제의 온라인 불법판매 등을 집중 점검한다는 보도자료를 게시했다. 관련 개발제품 동향 관심사에 해당하며 구체 점검 결과는 첨부자료 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    },
+    {
+      "id": "mfds-20261120-50514",
+      "category": "mfds.press",
+      "title": "[보도참고] 마약류 진통제는 통증조절이 되지 않는 심한 통증에만 사용해야 합니다",
+      "published_at": "2026-11-20",
+      "original_url": "https://www.mfds.go.kr/brd/m_99/view.do?seq=50514",
+      "publisher": "식품의약품안전처",
+      "department": "마약관리과",
+      "summary": "식약처가 마약류 진통제의 적절한 사용에 관한 보도참고자료를 게시했다. 세부 안전사용 지침은 첨부자료 확인이 필요하다.",
+      "verification": "official_detail_checked",
+      "evidence": "MFDS official board / detail page",
+      "content_status": "source_title_and_public_page_checked"
+    }
+  ],
+  "record_count": 7,
+  "excluded_examples": [
+    {
+      "title": "「바이오의약품 원료물질 및 원료의약품의 수입절차 특례 등에 관한 규정」 제정고시안 행정예고",
+      "date": "2026-11-13",
+      "reason": "outside_2026-11-16_to_22",
+      "url": "https://www.mfds.go.kr/brd/m_209/view.do?seq=44321"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+-r requirements.txt
+pytest>=8,<10
+# tests/browser_smoke.py also uses Playwright and Linux Chromium, not required for Windows MVP.

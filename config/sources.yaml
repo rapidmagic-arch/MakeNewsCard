@@ -1,0 +1,57 @@
+version: "0.1"
+status: "proposal_not_applied"
+issue:
+  period_mode: "weekly"  # proposed: weekly / quarterly / custom
+  top_news_default: 4    # historical default, not a hard limit
+  top_news_user_editable: true
+settings:
+  capture_interval: "daily" # proposed, independent of issue period
+  timezone: "Asia/Seoul"
+  discovery_keywords: ["의약품", "임상시험", "GMP", "인허가", "MOA", "GLP-1", "ADC"]
+  allow_missing_source_as_zero: false
+  preserve_raw_data: true
+  selected_top_news_independent_from_mandatory_inclusion: true
+sources:
+  mfds:
+    method_primary: "official_board_list"
+    method_secondary: "official_rss_discovery"
+    scope_rule: "all_pharma_related"
+    boards:
+      - {key: "guides_staff", url: "https://www.mfds.go.kr/brd/m_1059/list.do", rss_id: "data0010", html_section: "mfds.guides"}
+      - {key: "guides_citizen", url: "https://www.mfds.go.kr/brd/m_1060/list.do", rss_id: "data0011", html_section: "mfds.guides"}
+      - {key: "preannouncements", url: "https://www.mfds.go.kr/brd/m_209/list.do", rss_id: "data0009", html_section: "mfds.regulations", coverage_note: "rss may omit legislative notices"}
+      - {key: "enacted_notices", url: "https://www.mfds.go.kr/brd/m_207/list.do", rss_ids: ["data0005", "data0006", "data0007"], html_section: "mfds.regulations", coverage_note: "rss mapping is not one-to-one"}
+      - {key: "laws", url: "https://www.mfds.go.kr/brd/m_203/list.do", rss_ids: ["data0003", "data0008"], html_section: "mfds.regulations"}
+      - {key: "press", url: "https://www.mfds.go.kr/brd/m_99/list.do", rss_id: "ntc0021", html_section: "mfds.press"}
+      - {key: "notice", url: "https://www.mfds.go.kr/brd/m_74/list.do", rss_id: "ntc0003", html_section: "mfds.notices"}
+      - {key: "announcement", url: "https://www.mfds.go.kr/brd/m_76/list.do", rss_id: "ntc0004", html_section: "mfds.notices"}
+  industry:
+    method_primary: "public_article_lists_and_permitted_search"
+    scope_rule: "business_relevant"
+    link_and_metadata_first: true
+    confirmed_public_rss: false  # not verified by current research, not a claim of absence
+    media:
+      - {key: "dailypharm", url: "https://www.dailypharm.com/user/news", rights_check_required: true}
+      - {key: "medisobizanews", url: "https://www.medisobizanews.com/", rights_check_required: true}
+      - {key: "medicaltimes", url: "https://www.medicaltimes.com/Main/News/List.html", rights_check_required: true}
+      - {key: "kpanews", url: "https://www.kpanews.co.kr/news/articleList.html?view_type=sm", access_check_required: true, rights_check_required: true}
+      - {key: "yakup", url: "https://www.yakup.com/news/index.html", rights_check_required: true}
+    html_sections: ["industry.policy", "industry.market", "industry.global", "industry.rnd"]
+  approvals:
+    methods: ["official_site_excel", "official_openapi_if_coverage_confirmed"]
+    sources:
+      - {key: "clinical", url: "https://nedrug.mfds.go.kr/searchClinic", require_event_history_check: true}
+      - {key: "treatment_use", url: "https://nedrug.mfds.go.kr/pbp/CCBBQ01", official_excel: true}
+      - {key: "drug_product_approval", url: "https://nedrug.mfds.go.kr/pbp/CCBAE01", official_excel: true}
+    data_catalog: "https://data.mfds.go.kr/"
+  company:
+    method_primary: "company_public_pages_and_owner_supplied_materials"
+    sources:
+      - {key: "meditip", url: "https://www.meditip.co.kr/"}
+      - {key: "dreamcis", url: "https://dreamcis.com/bbs/board.php?bo_table=press"}
+    require_material_approval: true
+processing:
+  stage_order: ["collect", "coverage_check", "normalize", "rule_classify", "ai_review", "user_edit", "html_render"]
+  status_values: ["not_collected", "partial", "complete", "failed"]
+  ai_does_not_delete_raw: true
+  fields_dates_separate: ["published_at", "updated_at", "approved_at", "effective_at", "captured_at"]

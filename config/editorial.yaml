@@ -1,0 +1,27 @@
+# 편집 규칙 제안값. 사용자 확정이 아니며, 실제 업무에 맞춰 편집 가능.
+version: '0.1'
+reference: '892호 HTML 및 담당자 요구사항'
+section_priority:  # 핵심 뉴스 추천 기본점수; 수록 강제/제외 필터 아님
+  mfds.regulations: 75
+  mfds.guides: 70
+  mfds.notices: 58
+  mfds.press: 45
+  industry.policy: 40
+  industry.rnd: 35
+  industry.market: 30
+  industry.global: 30
+  industry.unclassified: 12
+interest_terms:
+  - {term: 'GLP-1', bonus: 16}
+  - {term: 'ADC', bonus: 16}
+  - {term: 'MOA', bonus: 12}
+  - {term: '교육', bonus: 10}
+  - {term: '설명회', bonus: 10}
+  - {term: '워크숍', bonus: 10}
+  - {term: '개정', bonus: 12}
+  - {term: '허가', bonus: 9}
+  - {term: '신약', bonus: 8}
+  - {term: '품질', bonus: 7}
+section_display:
+  mfds: [mfds.guides, mfds.regulations, mfds.press, mfds.notices]
+  industry: [industry.policy, industry.market, industry.global, industry.rnd]
