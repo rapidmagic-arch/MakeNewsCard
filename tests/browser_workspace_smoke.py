@@ -45,7 +45,7 @@ with sync_playwright() as pl:
  p.locator('#industrySection').select_option('industry.market')
  assert p.locator('.queue-row:visible').count()==12
  p.screenshot(path=str(root/'output'/'workspace_edit.png'),full_page=True)
- p.locator('[data-view="settings"]').click();assert 'config/sources.yaml' in p.locator('#view-settings').inner_text()
+ p.locator('[data-view="settings"]').click();assert '추천 그룹' in p.locator('#view-settings').inner_text()
  p.locator('[data-view="preview"]').click();assert p.locator('#confirmedBy').count()==1
  assert not errors,errors
  print('SMOKE PASS desktop, navigation, 170 candidates/12 shown, filters, settings and preview: 0 JS errors')

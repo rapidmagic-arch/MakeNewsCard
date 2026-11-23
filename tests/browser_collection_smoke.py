@@ -77,7 +77,7 @@ with sync_playwright() as pl:
     page.wait_for_selector('#sourceList input',timeout=6000)
     assert page.locator('.queue-row').count()==7
     assert page.locator('#sourceList input').count()>=8
-    assert not page.locator('.top-picker').is_visible()
+    assert page.locator('#openEditionDialog').is_hidden()
     assert page.locator('.issue-setup #colStart').count()==1
     assert page.locator('.issue-setup #colEnd').count()==1
     assert page.locator('.issue-setup #newEditionId').count()==1
@@ -129,7 +129,7 @@ with sync_playwright() as pl:
     assert page.locator('#collectionResults').is_hidden()
     assert '대기' in page.locator('#collectionState').inner_text()
     page.locator('[data-view=edit]').click()
-    assert page.locator('.top-picker').is_visible()
+    assert page.locator('#openEditionDialog').is_visible()
     page.locator('[data-view=collect]').click()
     assert page.evaluate('window.__collectCalls')==1
     page.screenshot(path=str(ROOT/'output'/'editor_collection_desktop.png'),full_page=True)
