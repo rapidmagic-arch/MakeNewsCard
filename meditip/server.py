@@ -16,7 +16,7 @@ import yaml
 
 from .collect import collect_source, source_specs
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
-from .edition import prepare, set_top_order, update_decision
+from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
 
 
@@ -135,6 +135,19 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._respond(200, html, 'text/html; charset=utf-8',
                                   download=f'newsletter_{active["edition"]}.html')
                     return
+                if p == '/export/ai':
+                    with connect(db_path) as con:
+                        edition=get_edition(con,active['edition'])
+                        items=edition_rows(con,active['edition'])
+                    payload={'schema_version':'meditip-ai-candidate-0.1','edition':edition,
+                             'instruction':'For each item return JSON items[] with id, section, summary, reason, recommended and score 0..100. Preserve source information and flag missing evidence.',
+                             'items':[{'id':x['id'],'title':x['title'],'url':x['url'],
+                                       'published_at':x['published_at'],'source_key':x['source_key'],
+                                       'section':x['section'],'verification':x['verification'],
+                                       'summary_source':x['summary_source']} for x in items]}
+                    self._respond(200,json.dumps(payload,ensure_ascii=False,indent=2),
+                                  'application/json; charset=utf-8',download=f'ai_candidates_{active["edition"]}.json')
+                    return
                 if p == '/export/json':
                     with connect(db_path) as con:
                         obj = {'edition': get_edition(con, active['edition']),
@@ -161,7 +174,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 return
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
-                if not 0 < n <= 50_000:
+                p = urlsplit(self.path).path
+                max_payload = 1_000_000 if p == '/api/ai/import' else 100_000
+                if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
                 if not isinstance(obj, dict):
@@ -224,6 +239,14 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with connect(db_path) as con:
+                    if p == '/api/industry/bulk':
+                        result=bulk_industry(con,active['edition'],obj.get('mode'),obj.get('ids'))
+                        self._json({'ok':True,**result})
+                        return
+                    if p == '/api/ai/import':
+                        touched=import_ai(con,active['edition'],obj)
+                        self._json({'ok':True,'analysed':touched})
+                        return
                     if p == '/api/decision':
                         update_decision(con, active['edition'], obj['item_id'], obj['changes'])
                     elif p == '/api/top-order':

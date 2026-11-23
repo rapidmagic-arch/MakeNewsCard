@@ -44,3 +44,10 @@
 - RSS 실패 시 게시판 원본 데이터 보존, 미설정 RSS는 `not_configured` 상태 유지.
 - 수집 테스트는 FakeSession으로 만든 고정 HTML/RSS에서 실시. **실제 MFDS 서버 요청 및 8개 게시판 완전성 검증 미수행**.
 - 신규 테스트 4개와 기존 17개: 총 **21개 통과** (`python -m pytest -q`).
+
+## v0.3: 언론기사 추천·분류·일괄 편집 검증
+
+- 수정 로컬 소스에서 `python -m pytest -q tests/test_mvp.py tests/test_collection_ui.py tests/test_editorial_bulk.py tests/test_editorial_http.py`: **20개 통과**. 이후 브랜치에 추가된 `tests/test_mfds_collect.py`는 이 실행에서 미포함.
+- 분야 분류 5개 예시, GLP-1 시장 분류 오류 발견·수정·재검증; 추천 일괄 처리 및 수동 선택/분류 보호, SQLite 마이그레이션, GPT JSON 가져오기 API까지 검증.
+- 170건 오프라인 브라우저 모의 데이터로 5분야 집계·필터·추천 일괄 선택 작동 확인. 실제 로컬 HTTP 브라우저 이동은 실행 환경 차단, 별도 HTTP API 검증 수행.
+- 사용자 Windows DB의 실제 170건과 실사이트 원문·수집 완전성은 검증하지 않음.

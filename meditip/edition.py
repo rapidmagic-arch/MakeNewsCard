@@ -16,6 +16,76 @@ KEYWORDS={
 }
 INTEREST={'GLP-1':16,'ADC':16,'MOA':12,'교육':10,'설명회':10,'워크숍':10,'개정':12,'허가':9,'신약':8,'품질':7}
 
+
+# Broad candidate discovery only: a title match is NOT a verified editorial judgment.
+INDUSTRY_HINTS={
+  'industry.policy': ('규제','고시','법령','식약처','심사','약가','급여','허가','가이드라인','보험등재'),
+  'industry.market': ('시장','공급','출시','계약','투자','인수','매출','파트너십','moa','mou'),
+  'industry.global': ('fda','ema','유럽','미국','일본','해외','글로벌','수출','국제'),
+  'industry.rnd': ('임상','연구','개발','신약','glp-1','adc','항체','바이오','후보물질','치료제'),
+}
+
+def industry_proposal(row,config=None):
+    """Mechanical review suggestion using headline/available source summary only."""
+    text=((row['title'] or '')+' '+(row['summary_source'] or '')).casefold()
+    hints=(config or {}).get('industry_section_keywords') or INDUSTRY_HINTS
+    strong={'industry.policy':{'약가','규제','고시','법령'},
+            'industry.market':{'시장','출시','매출'},
+            'industry.global':{'fda','ema','해외','글로벌'},
+            'industry.rnd':{'임상','연구','신약'}}
+    scores={k:sum((3 if str(term).casefold() in strong.get(k,set()) else 1)
+                  for term in words if str(term).casefold() in text)
+            for k,words in hints.items() if k in INDUSTRY_HINTS}
+    order=list(INDUSTRY_HINTS)
+    section=max(order,key=lambda key:(scores.get(key,0),-order.index(key)))
+    count=scores.get(section,0)
+    if not count:
+        return 'industry.unclassified','review_needed',False,'제목 기반 관심 키워드 일치 없음 · 직접 검토 필요'
+    matched=[t for t in hints.get(section,[]) if str(t).casefold() in text]
+    return section,'candidate',True,'키워드 후보: '+', '.join(map(str,matched[:5]))+' · 원문 관련성 검토 필요'
+
+
+def proposal_for(row):
+    """Imported GPT data takes precedence only when actually supplied."""
+    imported=(row.get('ai_score') is not None or row.get('ai_reason') is not None
+              or row.get('ai_section') is not None or bool(row.get('ai_summary')))
+    if imported:
+        return bool(row.get('ai_recommended')),row.get('ai_section') or row.get('rule_section') or row['section']
+    return bool(row.get('rule_recommended')),row.get('rule_section') or row['section']
+
+
+def bulk_industry(con,edition_id,mode,ids=None):
+    """Explicit human action; preserve individually reviewed fields by default."""
+    allowed={'apply_recommended','include','exclude','apply_sections'}
+    if mode not in allowed:raise ValueError('Unknown industry bulk operation')
+    rows={r['id']:r for r in edition_rows(con,edition_id) if r['source_group']=='industry'}
+    if ids is None: selected=list(rows)
+    elif isinstance(ids,list) and len(ids)==len(set(ids)) and len(ids)<=5000 and set(ids)<=set(rows):selected=ids
+    else:raise ValueError('Invalid industry item IDs')
+    updated=0;reviewed=0;not_recommended=0
+    for item_id in selected:
+        row=rows[item_id]
+        if mode=='apply_sections':
+            if row['section_reviewed']:
+                reviewed+=1;continue
+            _,section=proposal_for(row)
+            if not section.startswith('industry.') or section=='industry.unclassified':
+                not_recommended+=1;continue
+            con.execute('UPDATE decisions SET section_override=?,section_reviewed=1 WHERE edition_id=? AND item_id=?',
+                        (section,edition_id,item_id))
+        else:
+            if row['detail_reviewed']:
+                reviewed+=1;continue
+            rec,_=proposal_for(row)
+            if mode=='apply_recommended' and not rec:
+                not_recommended+=1;continue
+            include=(mode!='exclude')
+            con.execute('UPDATE decisions SET include_detail=?,detail_reviewed=1 WHERE edition_id=? AND item_id=?',
+                        (int(include),edition_id,item_id))
+        updated+=1
+    con.commit()
+    return {'updated':updated,'protected':reviewed,'not_recommended':not_recommended,'examined':len(selected)}
+
 def rule_score(row, config=None):
     priorities=(config or {}).get('section_priority',{})
     fallback,reason=KEYWORDS.get(row['section'],(12,'일반 후보'))
@@ -36,8 +106,19 @@ def prepare(con,edition_id,config=None):
         con.execute('''INSERT OR IGNORE INTO decisions
             (edition_id,item_id,include_detail,rule_score,rule_reason)
             VALUES (?,?,?,?,?)''',(edition_id,r['id'],include,score,reason))
-        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=? WHERE edition_id=? AND item_id=?''',
-                    (score,reason,edition_id,r['id']))
+        if r['source_group']=='industry':
+            section,relevance,recommended,hint=industry_proposal(r,config)
+            if recommended:
+                # Section priority is applied to candidates, not to article inclusion.
+                proposed_base=int((config or {}).get('section_priority',{}).get(
+                    section,KEYWORDS.get(section,(12,''))[0]))
+                score=max(score,proposed_base)
+            reason += ' · '+hint
+        else:
+            section,relevance,recommended=None,None,False
+        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?
+                       WHERE edition_id=? AND item_id=?''',
+                    (score,reason,section,relevance,int(recommended),edition_id,r['id']))
     con.commit()
     # Seed rule-based TOP suggestions only when no human selections exist.
     if not edition['seeded_top']:
@@ -68,6 +149,8 @@ def update_decision(con,edition_id,item_id,changes):
                    'clinical':'clinical.','treatment':'clinical.','drug':'drug.'}.get(row['source_group'],'')
         if not permitted or not section.startswith(permitted):
             raise ValueError('Section is incompatible with original source group')
+    if 'include_detail' in changes:changes['detail_reviewed']=1
+    if 'section_override' in changes:changes['section_reviewed']=1
     for flag in ('top_selected','include_detail'):
         if flag in changes:changes[flag]=int(bool(changes[flag]))
     if 'top_rank' in changes and changes['top_rank'] is not None:

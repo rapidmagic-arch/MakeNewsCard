@@ -21,7 +21,7 @@ def effective(row,key):
     if key=='summary':
         return (row.get('summary_override') if row.get('summary_override') is not None else
                 row.get('ai_summary') if row.get('ai_summary') is not None else row.get('summary_source',''))
-    if key=='section':return row.get('section_override') or row.get('ai_section') or row['section']
+    if key=='section':return row.get('section_override') or row.get('ai_section') or row.get('rule_section') or row['section']
     return row.get(key)
 
 def link(x):

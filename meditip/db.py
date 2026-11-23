@@ -79,6 +79,23 @@ def setup(con):
       PRIMARY KEY(edition_id,item_id)
     );
     ''')
+    # Incremental migration: never drop previously collected articles or editorial decisions.
+    existing={row[1] for row in con.execute('PRAGMA table_info(decisions)')}
+    for name,definition in {
+        'rule_section':'TEXT',
+        'rule_relevance':'TEXT',
+        'rule_recommended':'INTEGER NOT NULL DEFAULT 0',
+        'detail_reviewed':'INTEGER NOT NULL DEFAULT 0',
+        'section_reviewed':'INTEGER NOT NULL DEFAULT 0',
+    }.items():
+        if name not in existing:
+            con.execute(f'ALTER TABLE decisions ADD COLUMN {name} {definition}')
+    # v0.1 recorded selected manual industry articles without a provenance flag.
+    # Mark existing checked items as reviewed; unchecked entries were defaults,
+    # and their prior manual-uncheck state cannot be reconstructed reliably.
+    con.execute("""UPDATE decisions SET detail_reviewed=1
+              WHERE include_detail=1 AND detail_reviewed=0
+              AND item_id IN (SELECT id FROM items WHERE source_group='industry')""")
     con.commit()
 
 
@@ -136,6 +153,7 @@ def edition_rows(con,edition_id):
     e=get_edition(con,edition_id)
     return [dict(x) for x in con.execute('''SELECT i.*,d.include_detail,d.top_selected,d.top_rank,
       d.section_override,d.title_override,d.summary_override,d.rule_score,d.rule_reason,
-      d.ai_score,d.ai_reason,d.ai_summary,d.ai_section,d.ai_recommended
+      d.ai_score,d.ai_reason,d.ai_summary,d.ai_section,d.ai_recommended,
+      d.rule_section,d.rule_relevance,d.rule_recommended,d.detail_reviewed,d.section_reviewed
       FROM decisions d JOIN items i ON i.id=d.item_id
       WHERE d.edition_id=? ORDER BY i.published_at DESC,i.title''',(edition_id,))]
