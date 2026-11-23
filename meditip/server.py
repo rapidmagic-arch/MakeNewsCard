@@ -18,6 +18,7 @@ from .collect import collect_source, source_specs
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
+from .mail_templates import TEMPLATES, validate_template_id
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
 from .app_config import load_project_env
@@ -193,6 +194,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         editions=[dict(row) for row in con.execute('SELECT id,title,period_start,period_end,status,issue_number,confirmed_at FROM editions ORDER BY created_at DESC,id DESC')]
                     self._json({'active':active['edition'],'editions':editions})
                     return
+                if p == '/api/templates':
+                    self._json({'templates':[{'id':key,'label':label} for key,label in TEMPLATES.items()]})
+                    return
                 if p == '/api/settings':
                     with connect(db_path) as con:
                         ed=get_edition(con,active['edition'])
@@ -325,6 +329,15 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         with connect(db_path) as con:get_edition(con,target)
                         active['edition']=target
                     self._json({'ok':True,'edition_id':target})
+                    return
+                if p == '/api/edition/template':
+                    chosen=validate_template_id(obj.get('template_id'))
+                    with connect(db_path) as con:
+                        require_draft(con,active['edition'])
+                        con.execute('UPDATE editions SET template_id=? WHERE id=?',
+                                    (chosen,active['edition']))
+                        con.commit()
+                    self._json({'ok':True,'template_id':chosen})
                     return
                 if p == '/api/confirm':
                     if obj.get('acknowledged') is not True:

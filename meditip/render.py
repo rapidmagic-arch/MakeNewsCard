@@ -147,8 +147,12 @@ def top_table(items):
     result.append('</table>')
     return ''.join(result)
 
-def render(con,edition_id,template_path,final=False,preview=False):
+def render(con,edition_id,template_path,final=False,preview=False,template_id=None):
+    from .mail_templates import validate_template_id, render_outlook_cards
     edition=get_edition(con,edition_id)
+    selected=validate_template_id(template_id or edition.get('template_id') or 'classic')
+    if selected=='outlook_cards':
+        return render_outlook_cards(con,edition_id,final=final,preview=preview)
     rows=edition_rows(con,edition_id)
     publish_view=final or preview
     if publish_view:
