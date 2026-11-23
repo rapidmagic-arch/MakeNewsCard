@@ -73,3 +73,9 @@
 - 식약처 중복 링크, 확정 스냅샷, 회차별 수집 이력, 원본 날짜 미확인, 명시적 GPT 적용/편집 보존을 재현 데이터로 검사.
 - GitHub에서는 기존 최신 MFDS RSS 교차검증 코드를 덮어쓰지 않고 관련 수집 인자만 확장하여 반영.
 - 사용자 Windows 데이터와 실제 외부 수집·발송은 검증 대상에 미포함.
+
+## v0.6 추천 그룹 및 작업대 검증
+- 로컬 수정본에서 `python -m pytest -q` **33건 통과**; 신규 `tests/test_review_groups_v06.py`는 CRUD, 초기화, 기존 수동 결정 보존, GLP-1 시장 키워드 우선, 사용자 그룹 우선을 검사.
+- `python tests/browser_review_workbench.py`는 208건 모의 기사, 여러 페이지 선택, 974px/390px의 측면 편집, 그룹 추가·수정·삭제·재분류 조작 검사.
+- `node --check` UI JavaScript 문법 검사 통과.
+- Windows 실제 SQLite 208건, 실제 OpenAI API, 실제 사이트 수집 및 Outlook 발송 화면은 검증하지 않았습니다.

@@ -25,9 +25,28 @@ INDUSTRY_HINTS={
   'industry.rnd': ('임상','연구','개발','신약','glp-1','adc','항체','바이오','후보물질','치료제'),
 }
 
-def industry_proposal(row,config=None):
-    """Mechanical review suggestion using headline/available source summary only."""
+def group_proposal(row,config=None):
+    """Classify a metadata candidate using user groups; never commit an editorial decision."""
     text=((row['title'] or '')+' '+(row['summary_source'] or '')).casefold()
+    if config is not None and 'review_groups' in config:
+        groups=config['review_groups']
+        strong={'industry.policy':{'약가','규제','고시','법령'},
+                'industry.market':{'시장','출시','매출'},
+                'industry.global':{'fda','ema','해외','글로벌'},
+                'industry.rnd':{'임상','연구','신약'}}
+        matches=[]
+        for i,g in enumerate(groups):
+            words=[str(w) for w in g['keywords'] if str(w).casefold() in text]
+            section=g['target_section']
+            points=sum(3 if w.casefold() in strong.get(section,set()) else 1 for w in words)
+            if words:matches.append((1 if g['id'].startswith('custom-') else 0,points,len(words),-i,g,words))
+        if matches:
+            _,_,_,_,winner,words=max(matches,key=lambda x:x[:4])
+            return (winner['target_section'],'candidate' if winner['recommend'] else 'review_needed',
+                    bool(winner['recommend']),
+                    '추천 그룹 '+winner['label']+' · '+', '.join(words[:5])+' · 원문 확인 필요',winner['id'])
+        return 'industry.unclassified','review_needed',False,'일치하는 추천 그룹 없음 · 직접 검토 필요',None
+    # Backward-compatible standalone CLI and tests when custom groups are not loaded.
     hints=(config or {}).get('industry_section_keywords') or INDUSTRY_HINTS
     strong={'industry.policy':{'약가','규제','고시','법령'},
             'industry.market':{'시장','출시','매출'},
@@ -38,11 +57,14 @@ def industry_proposal(row,config=None):
             for k,words in hints.items() if k in INDUSTRY_HINTS}
     order=list(INDUSTRY_HINTS)
     section=max(order,key=lambda key:(scores.get(key,0),-order.index(key)))
-    count=scores.get(section,0)
-    if not count:
-        return 'industry.unclassified','review_needed',False,'제목 기반 관심 키워드 일치 없음 · 직접 검토 필요'
+    if not scores.get(section,0):
+        return 'industry.unclassified','review_needed',False,'제목 기반 관심 키워드 일치 없음 · 직접 검토 필요',None
     matched=[t for t in hints.get(section,[]) if str(t).casefold() in text]
-    return section,'candidate',True,'키워드 후보: '+', '.join(map(str,matched[:5]))+' · 원문 관련성 검토 필요'
+    return section,'candidate',True,'키워드 후보: '+', '.join(map(str,matched[:5]))+' · 원문 관련성 검토 필요',None
+
+
+def industry_proposal(row,config=None):
+    return group_proposal(row,config)[:4]
 
 
 def proposal_for(row):
@@ -92,6 +114,8 @@ def bulk_industry(con,edition_id,mode,ids=None,value=None):
             include=(mode!='exclude')
             con.execute('UPDATE decisions SET include_detail=?,detail_reviewed=1 WHERE edition_id=? AND item_id=?',
                         (int(include),edition_id,item_id))
+            # A recommended article's section is approved with the same explicit bulk action,
+            # unless someone has manually reviewed the section already.
             if mode=='apply_recommended' and not row['section_reviewed']:
                 _,recommended_section=proposal_for(row)
                 if recommended_section in ('industry.policy','industry.market','industry.global','industry.rnd'):
@@ -113,6 +137,8 @@ def rule_score(row, config=None):
 def prepare(con,edition_id,config=None,extra_ids=None):
     from .workflow import require_draft
     edition=require_draft(con,edition_id)
+    # Unknown dates must not leak into every edition. Only articles explicitly
+    # observed during this edition's collection may enter as undated candidates.
     known_ids=list(dict.fromkeys(extra_ids or []))
     if len(known_ids)>5000 or any(not isinstance(x,str) for x in known_ids):
         raise ValueError('Invalid collection provenance IDs')
@@ -130,7 +156,7 @@ def prepare(con,edition_id,config=None,extra_ids=None):
             (edition_id,item_id,include_detail,rule_score,rule_reason)
             VALUES (?,?,?,?,?)''',(edition_id,r['id'],include,score,reason))
         if r['source_group']=='industry':
-            section,relevance,recommended,hint=industry_proposal(r,config)
+            section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
             if recommended:
                 # Section priority is applied to candidates, not to article inclusion.
                 proposed_base=int((config or {}).get('section_priority',{}).get(
@@ -138,13 +164,13 @@ def prepare(con,edition_id,config=None,extra_ids=None):
                 score=max(score,proposed_base)
             reason += ' · '+hint
         else:
-            section,relevance,recommended=None,None,False
-        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?
+            section,relevance,recommended,rule_group_id=None,None,False,None
+        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?,rule_group_id=?
                        WHERE edition_id=? AND item_id=?''',
-                    (score,reason,section,relevance,int(recommended),edition_id,r['id']))
+                    (score,reason,section,relevance,int(recommended),rule_group_id,edition_id,r['id']))
     con.commit()
-    # TOP rank scores are proposals only; never set top_selected without a human action.
-    # Existing editions' stored TOP selections remain untouched.
+    # TOP scores are suggestions, never automatic editorial selection.
+    # Historic selected TOP entries remain in decisions unchanged.
     if rows:
         con.execute('UPDATE editions SET seeded_top=1 WHERE id=?',(edition_id,))
     con.commit()
@@ -204,6 +230,7 @@ def import_ai(con,edition_id,payload):
     if len(ids)!=len(analyses) or len(set(ids))!=len(ids):
         raise ValueError('AI analysis item IDs are duplicated or invalid')
     if payload.get('input_sha256'):
+        # JSON may represent either the full exported candidate set or a selected subset.
         from .ai_review import review_payload
         hashes={review_payload(con,edition_id,ids)['input_sha256'],
                 review_payload(con,edition_id)['input_sha256']}
