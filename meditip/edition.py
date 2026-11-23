@@ -56,6 +56,8 @@ def proposal_for(row):
 
 def bulk_industry(con,edition_id,mode,ids=None):
     """Explicit human action; preserve individually reviewed fields by default."""
+    from .workflow import require_draft
+    require_draft(con,edition_id)
     allowed={'apply_recommended','include','exclude','apply_sections'}
     if mode not in allowed:raise ValueError('Unknown industry bulk operation')
     rows={r['id']:r for r in edition_rows(con,edition_id) if r['source_group']=='industry'}
@@ -96,7 +98,8 @@ def rule_score(row, config=None):
     return score,reason
 
 def prepare(con,edition_id,config=None):
-    edition=get_edition(con,edition_id)
+    from .workflow import require_draft
+    edition=require_draft(con,edition_id)
     rows=con.execute('''SELECT * FROM items WHERE (published_at BETWEEN ? AND ?) OR published_at IS NULL''',
                      (edition['period_start'],edition['period_end'])).fetchall()
     for r in rows:
@@ -135,6 +138,8 @@ def prepare(con,edition_id,config=None):
     return len(rows)
 
 def update_decision(con,edition_id,item_id,changes):
+    from .workflow import require_draft
+    require_draft(con,edition_id)
     valid={'include_detail','top_selected','top_rank','section_override','title_override','summary_override'}
     unknown=set(changes)-valid
     if unknown:raise ValueError('Unknown editorial fields: '+','.join(sorted(unknown)))
@@ -163,6 +168,8 @@ def update_decision(con,edition_id,item_id,changes):
         con.commit()
 
 def set_top_order(con,edition_id,ids):
+    from .workflow import require_draft
+    require_draft(con,edition_id)
     if len(ids)!=len(set(ids)):raise ValueError('Duplicate IDs')
     available={x['id'] for x in edition_rows(con,edition_id)}
     if not set(ids).issubset(available):raise ValueError('Unknown article IDs')
@@ -173,6 +180,8 @@ def set_top_order(con,edition_id,ids):
 
 def import_ai(con,edition_id,payload):
     """Only adds AI proposals; it never changes human selections or source rows."""
+    from .workflow import require_draft
+    require_draft(con,edition_id)
     rows={r['id']:r for r in edition_rows(con,edition_id)}
     analyses=payload.get('items',[])
     if not isinstance(analyses,list):raise ValueError('items must be an array')
@@ -184,13 +193,16 @@ def import_ai(con,edition_id,payload):
         if score is not None and (not isinstance(score,(float,int)) or not 0<=score<=100):raise ValueError('score must be 0..100')
         summary=item.get('summary')
         if summary is not None and (not isinstance(summary,str) or len(summary)>2500):raise ValueError('Invalid summary')
+        relevance=item.get('relevance')
+        if relevance is not None and relevance not in ('relevant','irrelevant','review_needed'):
+            raise ValueError('Invalid AI relevance value')
         section=item.get('section')
         if section and not str(section).startswith({'mfds':'mfds.','industry':'industry.','company':'company.',
                  'clinical':'clinical.','treatment':'clinical.','drug':'drug.'}.get(rows[id]['source_group'],'__invalid__')):
             raise ValueError('AI section incompatible with source group: '+str(id))
-        con.execute('''UPDATE decisions SET ai_score=?,ai_reason=?,ai_summary=?,ai_section=?,ai_recommended=?
+        con.execute('''UPDATE decisions SET ai_score=?,ai_reason=?,ai_summary=?,ai_section=?,ai_recommended=?,ai_relevance=?
                      WHERE edition_id=? AND item_id=?''',
-                    (score,item.get('reason'),summary,item.get('section'),int(bool(item.get('recommended',False))),edition_id,id))
+                    (score,item.get('reason'),summary,item.get('section'),int(bool(item.get('recommended',False))),relevance,edition_id,id))
         touched+=1
     con.commit()
     return touched

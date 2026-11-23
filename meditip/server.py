@@ -18,6 +18,8 @@ from .collect import collect_source, source_specs
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
+from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
+from .ai_review import review_payload, analyze, ask, configured as ai_configured
 
 
 def _dates(start, end):
@@ -34,18 +36,21 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
     editor = Path(editor_path).read_text(encoding='utf8')
+    editor_css = (root/'assets'/'editor.css').read_text(encoding='utf8')
     sources_path = Path(sources_path or root/'config'/'sources.yaml')
     editorial_path = Path(editorial_path or root/'config'/'editorial.yaml')
     configured = {s['key']: s for s in source_specs(yaml.safe_load(sources_path.read_text(encoding='utf8')))}
     # Recompute only machine proposals for existing edition items on upgrade.
     # prepare() deliberately does not replace human choices or manually edited text.
     with connect(db_path) as con:
-        prepare(con, edition_id, yaml.safe_load(editorial_path.read_text(encoding='utf8')))
+        if get_edition(con,edition_id)['status']=='draft':
+            prepare(con, edition_id, yaml.safe_load(editorial_path.read_text(encoding='utf8')))
     template_path = str(template_path)
     active = {'edition': edition_id}
     lock = threading.Lock()
     job = {'state': 'idle', 'results': [], 'processed': 0, 'total': 0, 'current': None,
            'error': None, 'edition_id': edition_id}
+    ai_job = {'state':'idle','processed':0,'total':0,'error':None,'edition_id':edition_id}
 
     def job_snapshot():
         with lock:
@@ -84,6 +89,23 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 job['current'] = None
                 job['finished_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
+    def run_ai_review(payload, edition):
+        try:
+            proposal = analyze(payload)
+            with connect(db_path) as con:
+                if review_payload(con,edition,[x['id'] for x in payload['items']])['input_sha256'] != payload['input_sha256']:
+                    raise ValueError('AI 분석 중 원본 후보가 바뀌었어. 다시 분석해.')
+                import_ai(con, edition, proposal)
+            with lock:
+                ai_job.update(state='finished',processed=len(proposal['items']),
+                              result_count=len(proposal['items']))
+        except Exception as exc:
+            with lock:
+                ai_job.update(state='failed',error=f'{type(exc).__name__}: {str(exc)[:230]}')
+        finally:
+            with lock:
+                ai_job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
+
     class Handler(BaseHTTPRequestHandler):
         def _respond(self, status, body, content_type='application/json; charset=utf-8', download=None):
             if isinstance(body, str):
@@ -116,12 +138,37 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 if p == '/':
                     self._respond(200, editor.replace('__LOCAL_TOKEN__', token), 'text/html; charset=utf-8')
                     return
+                if p == '/assets/editor.css':
+                    self._respond(200,editor_css,'text/css; charset=utf-8')
+                    return
                 if p == '/api/edition':
                     with connect(db_path) as con:
                         edition = get_edition(con, active['edition'])
                         items = edition_rows(con, active['edition'])
                         runs = [dict(r) for r in con.execute('SELECT * FROM runs ORDER BY id DESC LIMIT 30')]
-                    self._json({'edition': edition, 'items': items, 'runs': runs})
+                        confirmation = confirm_details(con,active['edition'])
+                    self._json({'edition': edition, 'items': items, 'runs': runs,
+                                'confirmation':confirmation,
+                                'week_label':week_label(edition['period_start'],edition['period_end'])})
+                    return
+                if p == '/api/editions':
+                    with connect(db_path) as con:
+                        editions=[dict(row) for row in con.execute('SELECT id,title,period_start,period_end,status,issue_number,confirmed_at FROM editions ORDER BY created_at DESC,id DESC')]
+                    self._json({'active':active['edition'],'editions':editions})
+                    return
+                if p == '/api/settings':
+                    with connect(db_path) as con:
+                        ed=get_edition(con,active['edition'])
+                    editorial=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                    self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
+                                'interest_terms':editorial.get('interest_terms',[]),
+                                'industry_section_keywords':editorial.get('industry_section_keywords',{}),
+                                'top_target':ed['top_target'],'ai_api_available':ai_configured(),
+                                'config_files':['config/sources.yaml','config/editorial.yaml']})
+                    return
+                if p == '/api/ai/job':
+                    with lock:
+                        self._json(json.loads(json.dumps(ai_job,ensure_ascii=False)))
                     return
                 if p == '/api/sources':
                     self._json({'sources': [{
@@ -133,22 +180,26 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 if p == '/api/collection':
                     self._json(job_snapshot())
                     return
-                if p == '/export/html':
+                if p in ('/export/html','/preview/html'):
                     with connect(db_path) as con:
-                        html = render(con, active['edition'], template_path)
+                        html = confirmed_html(con,active['edition'])
+                        if html is None:
+                            html = render(con,active['edition'],template_path)
                     self._respond(200, html, 'text/html; charset=utf-8',
-                                  download=f'newsletter_{active["edition"]}.html')
+                                  download=f'newsletter_{active["edition"]}.html' if p == '/export/html' else None)
+                    return
+                if p == '/export/snapshot':
+                    with connect(db_path) as con:
+                        row=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(active['edition'],)).fetchone()
+                    if not row:
+                        self._json({'error':'확정본이 없어.'},404)
+                    else:
+                        self._respond(200,row['raw_json'],'application/json; charset=utf-8',
+                                      download=f'confirmed_{active["edition"]}.json')
                     return
                 if p == '/export/ai':
                     with connect(db_path) as con:
-                        edition=get_edition(con,active['edition'])
-                        items=edition_rows(con,active['edition'])
-                    payload={'schema_version':'meditip-ai-candidate-0.1','edition':edition,
-                             'instruction':'For each item return JSON items[] with id, section, summary, reason, recommended and score 0..100. Preserve source information and flag missing evidence.',
-                             'items':[{'id':x['id'],'title':x['title'],'url':x['url'],
-                                       'published_at':x['published_at'],'source_key':x['source_key'],
-                                       'section':x['section'],'verification':x['verification'],
-                                       'summary_source':x['summary_source']} for x in items]}
+                        payload=review_payload(con,active['edition'])
                     self._respond(200,json.dumps(payload,ensure_ascii=False,indent=2),
                                   'application/json; charset=utf-8',download=f'ai_candidates_{active["edition"]}.json')
                     return
@@ -209,7 +260,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             self._json({'error': 'Collection already running'}, 409)
                             return
                         with connect(db_path) as con:
-                            edition = get_edition(con, active['edition'])
+                            edition = require_draft(con, active['edition'])
                         if (start, end) != (edition['period_start'], edition['period_end']):
                             raise ValueError(f'Collection period {start} ~ {end} differs from the active edition period {edition["period_start"]} ~ {edition["period_end"]}. Select [이 기간으로 회차 생성·전환] first.')
                         job.clear()
@@ -220,6 +271,50 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                                          args=(list(keys), mode, start, end, max_pages, active['edition']),
                                          daemon=True).start()
                     self._json(job_snapshot(), 202)
+                    return
+                if p == '/api/edition/select':
+                    target=obj.get('edition_id')
+                    if not isinstance(target,str):raise ValueError('Select an edition')
+                    with lock:
+                        if job['state']=='running' or ai_job['state']=='running':
+                            self._json({'error':'작업 중에는 회차를 전환할 수 없어.'},409)
+                            return
+                        with connect(db_path) as con:get_edition(con,target)
+                        active['edition']=target
+                    self._json({'ok':True,'edition_id':target})
+                    return
+                if p == '/api/confirm':
+                    if obj.get('acknowledged') is not True:
+                        raise ValueError('확정 전 데이터 검토 및 출력 미연결 항목 확인이 필요해.')
+                    with lock:
+                        if job['state']=='running' or ai_job['state']=='running':
+                            self._json({'error':'수집·AI 분석 종료 후 확정해.'},409)
+                            return
+                        with connect(db_path) as con:
+                            result=confirm(con,active['edition'],template_path,
+                                           obj.get('confirmed_by'),obj.get('issue_number') or None)
+                    self._json({'ok':True,**result})
+                    return
+                if p == '/api/ai/review':
+                    with lock:
+                        if ai_job['state']=='running':
+                            self._json({'error':'AI 분석이 이미 진행 중이야.'},409);return
+                        with connect(db_path) as con:
+                            require_draft(con,active['edition'])
+                            payload=review_payload(con,active['edition'],obj.get('ids'))
+                        if not payload['items']:raise ValueError('AI 분석할 언론기사가 없어.')
+                        if not ai_configured():raise ValueError('OPENAI_API_KEY가 없어. JSON 내보내기·가져오기를 이용해.')
+                        ai_job.clear()
+                        ai_job.update(state='running',processed=0,total=len(payload['items']),
+                                      edition_id=active['edition'],error=None,
+                                      started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+                        threading.Thread(target=run_ai_review,args=(payload,active['edition']),daemon=True).start()
+                    self._json({'ok':True,'total':len(payload['items'])},202)
+                    return
+                if p == '/api/ai/ask':
+                    with connect(db_path) as con:
+                        result=ask(con,active['edition'],obj.get('question'),obj.get('ids'))
+                    self._json(result)
                     return
                 if p == '/api/edition/new':
                     start, end = obj.get('start'), obj.get('end')
@@ -234,15 +329,21 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         if job['state'] == 'running':
                             self._json({'error': 'Cannot switch edition during collection'}, 409)
                             return
-                        eid = f'edition-{start}-{end}'
+                        eid = obj.get('edition_id') or f'edition-{start}-{end}'
+                        if not isinstance(eid,str) or not re.fullmatch(r'[0-9A-Za-z_-]{4,72}',eid):
+                            raise ValueError('회차 ID는 영문·숫자·-·_ 4~72자만 가능해.')
                         with connect(db_path) as con:
                             ensure_edition(con, eid, start, end, title, count)
-                            rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                            prepare(con, eid, rules)
+                            actual=get_edition(con,eid)
+                            if (actual['period_start'],actual['period_end'])!=(start,end):
+                                raise ValueError('해당 회차 ID에 이미 다른 기간이 연결되어 있어.')
+                            if actual['status']=='draft':
+                                rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                                prepare(con, eid, rules)
                         active['edition'] = eid
                     self._json({'ok': True, 'edition_id': eid})
                     return
-                with connect(db_path) as con:
+                with lock, connect(db_path) as con:
                     if p == '/api/industry/bulk':
                         result=bulk_industry(con,active['edition'],obj.get('mode'),obj.get('ids'))
                         self._json({'ok':True,**result})
@@ -256,6 +357,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     elif p == '/api/top-order':
                         set_top_order(con, active['edition'], obj['ids'])
                     elif p == '/api/target':
+                        require_draft(con,active['edition'])
                         num = obj['count']
                         if isinstance(num, bool) or not isinstance(num, int) or not 0 <= num <= 100:
                             raise ValueError('Target must be an integer 0..100')

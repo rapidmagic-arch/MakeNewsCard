@@ -14,6 +14,8 @@ from meditip.db import connect,setup,ensure_edition,edition_rows,get_edition
 from meditip.collect import source_specs,collect_source,import_snapshot,import_approval_csv
 from meditip.edition import prepare,import_ai
 from meditip.render import render
+from meditip.workflow import confirm, confirmed_html, week_label
+from meditip.ai_review import review_payload, analyze
 from meditip.server import serve
 
 ROOT=Path(__file__).resolve().parent
@@ -48,6 +50,13 @@ def main():
     export_ai.add_argument('id');export_ai.add_argument('--out')
     ai=sub.add_parser('import-ai',help='Import AI proposals; preserve human decisions')
     ai.add_argument('id');ai.add_argument('path')
+    ai_run=sub.add_parser('ai-review',help='Explicit AI API review; suggestions only, not auto-applied')
+    ai_run.add_argument('id');ai_run.add_argument('--out');ai_run.add_argument('--model')
+    issue_status=sub.add_parser('issue-status',help='Show issue, week, confirmation state')
+    issue_status.add_argument('id')
+    confirmation=sub.add_parser('confirm',help='Freeze final HTML and the source/decision snapshot')
+    confirmation.add_argument('id');confirmation.add_argument('--by',required=True)
+    confirmation.add_argument('--number');confirmation.add_argument('--acknowledge',action='store_true')
     app=sub.add_parser('serve',help='Launch local-only editorial UI')
     app.add_argument('--edition',default='demo-2026-11-16-22');app.add_argument('--port',type=int,default=8765)
     args=p.parse_args()
@@ -85,24 +94,38 @@ def main():
         elif args.command=='import-approval-csv':
             print(json.dumps(import_approval_csv(con,args.path,args.kind),ensure_ascii=False,indent=2))
         elif args.command=='export-html':
-            html=render(con,args.id,ROOT/'templates'/'892_slots_original.html')
+            html=confirmed_html(con,args.id) or render(con,args.id,ROOT/'templates'/'892_slots_original.html')
             out=Path(args.out) if args.out else ROOT/'output'/f'newsletter_{args.id}.html'
             out.parent.mkdir(parents=True,exist_ok=True)
             out.write_text(html,encoding='utf8')
             print('Rendered draft:',out,'bytes:',len(html.encode('utf8')))
         elif args.command=='export-ai':
-            e=get_edition(con,args.id);rows=edition_rows(con,args.id)
-            payload={'schema_version':'meditip-ai-candidate-0.1','edition':e,
-                     'instruction':'Return JSON items[] with id, section, summary, reason, recommended, score 0..100. Do not invent or overwrite source information.',
-                     'items':[{'id':x['id'],'title':x['title'],'url':x['url'],'published_at':x['published_at'],
-                               'source_key':x['source_key'],'section':x['section'],
-                               'verification':x['verification'],'summary_source':x['summary_source']} for x in rows]}
+            payload=review_payload(con,args.id)
             out=Path(args.out) if args.out else ROOT/'output'/f'candidates_{args.id}.json'
             out.parent.mkdir(parents=True,exist_ok=True)
             out.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf8');print('AI input saved:',out)
         elif args.command=='import-ai':
             payload=json.loads(Path(args.path).read_text(encoding='utf8'))
             print('AI proposals imported:',import_ai(con,args.id,payload),'(no human override modified)')
+        elif args.command=='issue-status':
+            e=get_edition(con,args.id)
+            print(json.dumps({'id':args.id,'status':e['status'],'week':week_label(e['period_start'],e['period_end']),
+                   'period_start':e['period_start'],'period_end':e['period_end'],
+                   'issue_number':e['issue_number'],'confirmed_at':e['confirmed_at']},ensure_ascii=False,indent=2))
+        elif args.command=='confirm':
+            if not args.acknowledge:raise ValueError('Use --acknowledge after reviewing warnings and output')
+            print(json.dumps(confirm(con,args.id,ROOT/'templates'/'892_slots_original.html',
+                                     args.by,args.number),ensure_ascii=False,indent=2))
+        elif args.command=='ai-review':
+            payload=review_payload(con,args.id)
+            from meditip.workflow import require_draft
+            require_draft(con,args.id)
+            proposed=analyze(payload,args.model)
+            if args.out:
+                Path(args.out).write_text(json.dumps(proposed,ensure_ascii=False,indent=2),encoding='utf8')
+                print('AI proposals saved without applying to database:',args.out)
+            else:
+                print('AI suggestions added:',import_ai(con,args.id,proposed))
 
 if __name__=='__main__':
     try:main()

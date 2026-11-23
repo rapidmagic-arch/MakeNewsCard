@@ -78,10 +78,22 @@ def setup(con):
       ai_recommended INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(edition_id,item_id)
     );
+    CREATE TABLE IF NOT EXISTS edition_confirmations (
+      edition_id TEXT PRIMARY KEY REFERENCES editions(id),
+      confirmed_at TEXT NOT NULL, confirmed_by TEXT NOT NULL, issue_number TEXT,
+      html TEXT NOT NULL, raw_json TEXT NOT NULL, html_sha256 TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_confirmed_issue_number ON edition_confirmations(issue_number)
+      WHERE issue_number IS NOT NULL;
     ''')
     # Incremental migration: never drop previously collected articles or editorial decisions.
+    edition_columns={row[1] for row in con.execute('PRAGMA table_info(editions)')}
+    for name in ('issue_number','confirmed_at','confirmed_by'):
+        if name not in edition_columns:
+            con.execute(f'ALTER TABLE editions ADD COLUMN {name} TEXT')
     existing={row[1] for row in con.execute('PRAGMA table_info(decisions)')}
     for name,definition in {
+        'ai_relevance':'TEXT',
         'rule_section':'TEXT',
         'rule_relevance':'TEXT',
         'rule_recommended':'INTEGER NOT NULL DEFAULT 0',
@@ -95,7 +107,8 @@ def setup(con):
     # and their prior manual-uncheck state cannot be reconstructed reliably.
     con.execute("""UPDATE decisions SET detail_reviewed=1
               WHERE include_detail=1 AND detail_reviewed=0
-              AND item_id IN (SELECT id FROM items WHERE source_group='industry')""")
+              AND item_id IN (SELECT id FROM items WHERE source_group='industry')
+               AND edition_id IN (SELECT id FROM editions WHERE status='draft')""")
     con.commit()
 
 
@@ -138,7 +151,7 @@ def log_run(con,key,start,end,status,pages,count,detail=None):
 
 
 def ensure_edition(con,id,start,end,title=None,target=4):
-    con.execute('INSERT OR IGNORE INTO editions VALUES (?,?,?,?,?,?,?,?)',
+    con.execute('''INSERT OR IGNORE INTO editions (id,period_start,period_end,title,top_target,status,seeded_top,created_at) VALUES (?,?,?,?,?,?,?,?)''',
                 (id,start,end,title or f'{start}~{end}',target,'draft',0,utcnow()))
     con.commit()
 
@@ -153,7 +166,7 @@ def edition_rows(con,edition_id):
     e=get_edition(con,edition_id)
     return [dict(x) for x in con.execute('''SELECT i.*,d.include_detail,d.top_selected,d.top_rank,
       d.section_override,d.title_override,d.summary_override,d.rule_score,d.rule_reason,
-      d.ai_score,d.ai_reason,d.ai_summary,d.ai_section,d.ai_recommended,
+      d.ai_score,d.ai_reason,d.ai_summary,d.ai_section,d.ai_recommended,d.ai_relevance,
       d.rule_section,d.rule_relevance,d.rule_recommended,d.detail_reviewed,d.section_reviewed
       FROM decisions d JOIN items i ON i.id=d.item_id
       WHERE d.edition_id=? ORDER BY i.published_at DESC,i.title''',(edition_id,))]
