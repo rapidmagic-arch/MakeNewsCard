@@ -27,6 +27,7 @@ with tempfile.TemporaryDirectory() as tmp:
 specs = list(source_specs(yaml.safe_load((ROOT/'config'/'sources.yaml').read_text())))
 sources = [{'key': s['key'], 'group': s['group'], 'rss_available': bool(s.get('rss_id'))} for s in specs]
 html = (ROOT/'editor.html').read_text(encoding='utf8')
+html = html.replace('<link rel="stylesheet" href="/assets/editor.css">','<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
 mock = '''<script>
 window.__seed = SEED;
 window.__sources = SOURCES;
@@ -38,6 +39,9 @@ window.fetch = async function(path, opts){
    if (path==='/api/edition') data=window.__seed;
    else if(path==='/api/sources') data={sources:window.__sources};
    else if(path==='/api/collection') data=window.__job;
+   else if(path==='/api/editions') data={active:'smoke',editions:[window.__seed.edition]};
+   else if(path==='/api/ai/job') data={state:'idle'};
+   else if(path==='/api/settings') data={sources:[],industry_section_keywords:{},ai_api_available:false};
  } else {
    const body=JSON.parse(opts.body);
    if(path==='/api/top-order'){
@@ -66,7 +70,9 @@ with sync_playwright() as pl:
     errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.set_content(html,wait_until='load')
+    page.locator('[data-view=edit]').click()
     page.wait_for_selector('.item',timeout=6000)
+    page.locator('[data-view=collect]').click()
     page.wait_for_selector('#sourceList input',timeout=6000)
     assert page.locator('.item').count()==7
     assert page.locator('#sourceList input').count()>=8
@@ -95,7 +101,8 @@ with sync_playwright() as pl:
     page.screenshot(path=str(ROOT/'output'/'editor_collection_desktop.png'),full_page=True)
     mobile=b.new_page(viewport={'width':390,'height':844})
     mobile.set_content(html,wait_until='load')
-    mobile.wait_for_selector('.item')
+    mobile.locator('[data-view=collect]').click()
+    mobile.wait_for_selector('#sourceList input')
     mobile.screenshot(path=str(ROOT/'output'/'editor_collection_mobile.png'),full_page=True)
     assert not errors,errors
     b.close()

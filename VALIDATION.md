@@ -51,3 +51,13 @@
 - 분야 분류 5개 예시, GLP-1 시장 분류 오류 발견·수정·재검증; 추천 일괄 처리 및 수동 선택/분류 보호, SQLite 마이그레이션, GPT JSON 가져오기 API까지 검증.
 - 170건 오프라인 브라우저 모의 데이터로 5분야 집계·필터·추천 일괄 선택 작동 확인. 실제 로컬 HTTP 브라우저 이동은 실행 환경 차단, 별도 HTTP API 검증 수행.
 - 사용자 Windows DB의 실제 170건과 실사이트 원문·수집 완전성은 검증하지 않음.
+
+
+## v0.4 작업 검증 (2026-11-23)
+
+- 로컬 수정본 기반 `python -m pytest -q tests/test_issue_workflow.py tests/test_http_workflow.py tests/test_mvp.py tests/test_editorial_bulk.py tests/test_collection_ui.py tests/test_editorial_http.py tests/test_previous_fixes.py`: **30개 통과**. 앞선 브랜치의 기존 MFDS 수집 테스트(`tests/test_mfds_collect.py`)는 해당 로컬 실행에 포함되지 않아 브랜치 전체 통과 판정은 아님.
+- 서버 실 HTTP 테스트: 주차/회차 조회, 선택·확정, 확정 후 편집 거부, 원본 JSON, final HTML, 같은 주차 다른 ID 회차 생성.
+- 단위 테스트: ISO 경계, 수록 기사 없을 때 확정 거부, 서로 다른 회차번호의 독립 확정, 확정 HTML 불변 및 SHA 검증, API 미설정 동작, OpenAI Responses API **모의 응답** 검증.
+- 기존 중복 URL 출력 방지와 미분류 기사 수록 보완에 대한 모의 회귀 테스트 3개 통과. SQLite 기존 원본과 수동 편집 보존.
+- Chromium 단독 모의 브라우저: 170건 중 한 페이지 12건 표시, 분야 필터, 메뉴 전환, 환경설정, 미리보기 영역, 모바일·데스크톱 렌더링. 수집 화면 모의 테스트도 통과. JS 문법 `node --check` 통과.
+- 실제 Chromium → localhost 페이지 이동은 실행 환경 관리자 정책으로 차단되어 HTTP와 브라우저 모의 테스트로 나눠 수행. OpenAI 실호출, 사용자 Windows DB의 170건 정확도, 전체 MFDS/언론 사이트 수집 완전성, 이메일 클라이언트 발송 품질은 **미검증**.
