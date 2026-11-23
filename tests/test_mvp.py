@@ -23,16 +23,16 @@ def testdb(tmp_path):
         prepare(c,'test')
         yield c
 
-def test_seven_records_and_top_four(testdb):
+def test_seven_records_and_top_starts_unselected(testdb):
     rows=edition_rows(testdb,'test')
     assert len(rows)==7
-    assert sum(bool(x['top_selected']) for x in rows)==4
+    assert sum(bool(x['top_selected']) for x in rows)==0
     assert all(x['include_detail'] for x in rows)
 
 def test_top_is_independent_of_mandatory(testdb):
     rows=edition_rows(testdb,'test')
-    top=[r['id'] for r in rows if r['top_selected']]
-    set_top_order(testdb,'test',top[:2])
+    top=[r['id'] for r in rows[:2]]
+    set_top_order(testdb,'test',top)
     assert sum(x['top_selected'] for x in edition_rows(testdb,'test'))==2
     assert sum(x['include_detail'] for x in edition_rows(testdb,'test'))==7
     with pytest.raises(ValueError):update_decision(testdb,'test',top[0],{'include_detail':False})
@@ -105,3 +105,47 @@ def test_clinical_csv_import_and_table(tmp_path,testdb):
     html=render(testdb,'test',ROOT/'templates'/'892_slots_original.html')
     assert '샘플의뢰자' in html and '변경승인' not in html # type stored, but not invented in required five columns
     assert '데이터 수집 연동 전' not in html
+
+
+def test_mfds_same_post_two_urls_renders_once_without_data_loss(testdb):
+    # Two URLs for the same board sequence can differ in paging/search params.
+    base='https://www.mfds.go.kr/brd/m_99/view.do?seq=91919'
+    title='동일한 식약처 원본을 두 URL에서 발견한 경우'
+    for suffix in ('&page=1', '&page=2'):
+        save_item(testdb, {'source_key':'press','source_group':'mfds',
+                  'section':'mfds.press','url':base+suffix,'title':title,
+                  'published_at':'2026-11-17'})
+    testdb.commit()
+    prepare(testdb,'test')
+    rows=[r for r in edition_rows(testdb,'test') if r['title']==title]
+    assert len(rows)==2  # original evidence and decisions are retained
+    set_top_order(testdb,'test',[x['id'] for x in rows])
+    html=render(testdb,'test',ROOT/'templates'/'892_slots_original.html')
+    soup=BeautifulSoup(html,'html.parser')
+    assert len(soup.find_all('a',string=title))==2  # one TOP + one detailed listing
+    assert len(testdb.execute('SELECT id FROM items WHERE title=?',(title,)).fetchall())==2
+
+
+def test_industry_candidates_only_render_after_human_inclusion(testdb):
+    source={'source_key':'dailypharm','source_group':'industry','section':'industry.unclassified',
+            'url':'https://www.dailypharm.com/user/news/999000','title':'산업 분야 미분류 수집 기사',
+            'published_at':'2026-11-17','mandatory':False}
+    save_item(testdb,source)
+    testdb.commit()
+    prepare(testdb,'test')
+    rows=[r for r in edition_rows(testdb,'test') if r['title']==source['title']]
+    assert len(rows)==1 and not rows[0]['include_detail']
+    html=render(testdb,'test',ROOT/'templates'/'892_slots_original.html')
+    assert '언론기사 후보 1건이 있지만' in html
+    update_decision(testdb,'test',rows[0]['id'],{'include_detail':True})
+    html=render(testdb,'test',ROOT/'templates'/'892_slots_original.html')
+    assert source['title'] in html
+    assert '미분류 · 담당자 검토 필요' in html
+
+
+def test_identical_headlines_from_different_publishers_not_collapsed(testdb):
+    from meditip.render import unique_for_display
+    common={'source_group':'industry','title':'동일 제목 비교', 'published_at':'2026-11-17'}
+    rows=[{**common,'id':'a','source_key':'dailypharm','url':'https://www.dailypharm.com/a'},
+          {**common,'id':'b','source_key':'yakup','url':'https://www.yakup.com/b'}]
+    assert len(list(unique_for_display(rows)))==2

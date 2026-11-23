@@ -7,7 +7,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse, parse_qs, parse_qsl, urlencode, urlsplit, urlunsplit
 import requests
 from bs4 import BeautifulSoup
 from .db import save_item, log_run
@@ -93,42 +93,117 @@ def source_specs(config):
     # Approval APIs / Excel and BD files are explicitly separate connectors, not page scraping
 
 
-def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session=None):
-    session=session or requests.Session();key=spec['key'];grp=spec['group']
+def mfds_post_key(url):
+    """Stable ID for one MFDS board posting, regardless of page/search parameters."""
+    p = urlsplit(url)
+    m = re.fullmatch(r'/brd/m_(\d+)/view\.do', p.path)
+    seq = parse_qs(p.query).get('seq', [None])[0]
+    if p.hostname not in ('www.mfds.go.kr', 'mfds.go.kr') or not m or not seq or not seq.isdecimal():
+        return None
+    return (m.group(1), seq)
+
+
+def mfds_canonical_link(url):
+    """Strip page/search parameters only when a board/seq identity is verified."""
+    key = mfds_post_key(url)
+    if key is None:
+        return url
+    p = urlsplit(url)
+    return urlunsplit((p.scheme, p.netloc, p.path, urlencode({'seq': key[1]}), ''))
+
+
+def mfds_list_url(base, page, start, end):
+    """Send the official site's documented search parameter names, verify results client-side too."""
+    p = urlsplit(base)
+    q = dict(parse_qsl(p.query, keep_blank_values=True))
+    q.update(page=str(page), srchFr=start, srchTo=end)
+    return urlunsplit((p.scheme, p.netloc, p.path, urlencode(q), ''))
+
+
+def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session=None,edition_id=None):
+    """Collect metadata; never label a limited or unverified scan as complete."""
+    session=session or requests.Session()
+    key=spec['key'];grp=spec['group']
     domain=urlparse(spec['url']).hostname
     records=[];pages=0;issues=[];status='partial'
+    seen=set();duplicate_rows=0;undated=0
+    audit={'mode':mode,'period':{'start':start,'end':end}}
     try:
         if mode=='rss':
-            if grp!='mfds' or not spec.get('rss_id'):raise ValueError('RSS mapping not configured for this source')
+            if grp!='mfds' or not spec.get('rss_id'):
+                raise ValueError('RSS mapping not configured for this source')
             url=f'https://www.mfds.go.kr/www/rss/brd.do?brdId={spec["rss_id"]}'
             r=get(session,url,domain);pages+=1
-            for x in parse_feed(r.content,url,key,spec['html_section']):
-                if x['published_at'] is None or start<=x['published_at']<=end:records.append(x)
-            # RSS does not prove the board is complete.
-            issues.append('RSS discovery only; board comparison required')
+            for item in parse_feed(r.content,url,key,spec['html_section']):
+                if item['published_at'] is not None and not (start<=item['published_at']<=end):
+                    continue
+                if item['published_at'] is None:undated+=1
+                if grp=='mfds':item['url']=mfds_canonical_link(item['url'])
+                identity=mfds_post_key(item['url']) or ('url',item['url'])
+                if identity in seen:
+                    duplicate_rows+=1;continue
+                seen.add(identity);records.append(item)
+            issues.append('RSS discovery only; list-page coverage must be checked independently')
         else:
             if not 1<=max_pages<=50:raise ValueError('max_pages must be 1..50')
             for page in range(1,max_pages+1):
-                url=spec['url']; sep='&' if '?' in url else '?'
-                if grp=='mfds':url+=f'{sep}page={page}'
-                elif page>1:break # media pagination shape not confirmed; first page metadata only
+                url=(mfds_list_url(spec['url'],page,start,end) if grp=='mfds'
+                     else spec['url'])
+                if grp=='industry' and page>1:
+                    break # pagination shape remains unverified
                 r=get(session,url,domain);pages+=1
                 rows=parse_public_list(r.content,r.url,key,grp,spec.get('html_section','industry.unclassified'))
                 if not rows:
                     issues.append(f'No article links parsed on page {page}; selector needs validation')
                     break
-                relevant=[x for x in rows if x['published_at'] is None or start<=x['published_at']<=end]
-                records.extend(relevant)
-                if len([x for x in rows if x['published_at'] is None])>0:
-                    issues.append(f'Undated list entries on page {page}; page coverage unknown')
+                fresh=0
+                for item in rows:
+                    published=item['published_at']
+                    if published is not None and not (start<=published<=end):continue
+                    if published is None:undated+=1
+                    if grp=='mfds':item['url']=mfds_canonical_link(item['url'])
+                    identity=mfds_post_key(item['url']) if grp=='mfds' else None
+                    identity=identity or ('url',item['url'])
+                    if identity in seen:
+                        duplicate_rows+=1;continue
+                    seen.add(identity);records.append(item);fresh+=1
+                if not fresh:
+                    issues.append(f'No new in-range records on page {page}; check pagination/date filtering')
+                    break
                 if page<max_pages:time.sleep(delay)
             issues.append('Page coverage unverified; cannot mark complete automatically')
-        for x in records:save_item(con,x)
-        con.commit()
+            # Compare only overlapping observed RSS/board IDs. RSS may be truncated.
+            if grp=='mfds' and spec.get('rss_id'):
+                rss_url=f'https://www.mfds.go.kr/www/rss/brd.do?brdId={spec["rss_id"]}'
+                try:
+                    feed=get(session,rss_url,domain)
+                    rss_records=parse_feed(feed.content,rss_url,key,spec['html_section'])
+                    rss_ids={x for row in rss_records
+                             if row['published_at'] is not None and start<=row['published_at']<=end
+                             if (x:=mfds_post_key(row['url'])) is not None}
+                    board_ids={x for row in records if (x:=mfds_post_key(row['url'])) is not None}
+                    missing=sorted(rss_ids-board_ids)
+                    audit['rss_crosscheck']={'status':'compared','rss_identified':len(rss_ids),
+                                             'board_identified':len(board_ids),
+                                             'rss_not_on_board':[f'm_{b}:seq={seq}' for b,seq in missing[:25]],
+                                             'rss_not_on_board_count':len(missing)}
+                    if missing:issues.append(f'RSS has {len(missing)} dated IDs not found in scanned board pages')
+                except Exception as exc:
+                    audit['rss_crosscheck']={'status':'failed', 'error':type(exc).__name__}
+                    issues.append('RSS comparison failed: '+type(exc).__name__)
+            elif grp=='mfds':
+                audit['rss_crosscheck']={'status':'not_configured'}
+        if undated:issues.append(f'{undated} entries have no reliably parsed date; date coverage needs review')
     except Exception as exc:
         issues.append(type(exc).__name__+': '+str(exc)[:260]);status='failed' if pages==0 else 'partial'
-    log_run(con,key,start,end,status,pages,len(records),{'mode':mode,'issues':issues})
-    return {'source':key,'status':status,'pages':pages,'records':len(records),'issues':issues}
+    # Preserve usable earlier pages even if a subsequent page or cross-check fails.
+    item_ids=[save_item(con,item) for item in records]
+    con.commit()
+    audit.update(issues=issues,duplicate_rows=duplicate_rows,undated=undated)
+    log_run(con,key,start,end,status,pages,len(records),audit,edition_id=edition_id)
+    return {'source':key,'status':status,'pages':pages,'records':len(records),'item_ids':item_ids,
+            'duplicate_rows':duplicate_rows,'undated':undated,
+            'rss_crosscheck':audit.get('rss_crosscheck'), 'issues':issues}
 
 
 def import_snapshot(con,payload,source='historical_sample'):

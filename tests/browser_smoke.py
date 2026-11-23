@@ -1,45 +1,54 @@
-"""Browser UI smoke without network: Chromium in this runtime blocks loopback navigation.
-The real backend is verified separately via HTTP requests; this test covers JS rendering.
-"""
+"""Offline Chromium smoke: historical sample, explicit TOP selection."""
+import json,tempfile
 from pathlib import Path
-import requests,json
 from playwright.sync_api import sync_playwright
+from meditip.db import connect,setup,ensure_edition,get_edition,edition_rows
+from meditip.collect import import_snapshot
+from meditip.edition import prepare
 ROOT=Path(__file__).resolve().parents[1]
-seed=requests.get('http://127.0.0.1:8765/api/edition',timeout=5).json()
-html=(ROOT/'editor.html').read_text(encoding='utf8')
-patch="""<script>
-window.__mock=SEED_HERE;
-window.fetch=async function(path,opts){
-  if(!opts){return {ok:true,json:async()=>JSON.parse(JSON.stringify(window.__mock))};}
+with tempfile.TemporaryDirectory() as d:
+    with connect(Path(d)/'smoke.db') as con:
+        setup(con)
+        import_snapshot(con,json.loads((ROOT/'fixtures'/'mfds_2026-11-16_22_partial.json').read_text()),'offline')
+        ensure_edition(con,'smoke','2026-11-16','2026-11-22')
+        prepare(con,'smoke')
+        data={'edition':get_edition(con,'smoke'),'items':edition_rows(con,'smoke'),
+              'week_label':'2026-W47','runs':[],'run_total':0,'undated_count':0,'out_of_period_count':0}
+html=(ROOT/'editor.html').read_text().replace('<link rel="stylesheet" href="/assets/editor.css">',
+    '<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
+mock='''<script>
+window.__seed=PAYLOAD;
+window.fetch=async(path,opts)=>{
+ let data={};
+ if(!opts){
+  if(path==='/api/edition')data=window.__seed;
+  if(path==='/api/editions')data={active:'smoke',editions:[window.__seed.edition]};
+  if(path==='/api/sources')data={sources:[]};
+  if(path==='/api/settings')data={sources:[],industry_section_keywords:{},ai_api_available:false};
+  if(path==='/api/collection'||path==='/api/ai/job')data={state:'idle',processed:0,total:0,results:[]};
+ }else if(path==='/api/top-order'){
   const body=JSON.parse(opts.body);
-  if(path==='/api/top-order'){
-    window.__mock.items.forEach(x=>{let i=body.ids.indexOf(x.id);x.top_selected=i>=0?1:0;x.top_rank=i>=0?i+1:null});
-  }else if(path==='/api/decision'){
-    Object.assign(window.__mock.items.find(x=>x.id===body.item_id),body.changes)
-  }else if(path==='/api/target'){window.__mock.edition.top_target=body.count}
-  return {ok:true,json:async()=>({ok:true})}
-}
-</script>""".replace('SEED_HERE',json.dumps(seed,ensure_ascii=False).replace('<','\\u003c'))
-html=html.replace('<script>\n\'use strict\';',patch+'\n<script>\n\'use strict\';')
+  for(const x of window.__seed.items){const i=body.ids.indexOf(x.id);x.top_selected=i<0?0:1;x.top_rank=i<0?null:i+1;}
+  data={ok:true};
+ }else data={ok:true};
+ return {ok:true,status:200,json:async()=>JSON.parse(JSON.stringify(data))}
+};
+</script>'''.replace('PAYLOAD',json.dumps(data,ensure_ascii=False).replace('<','\\u003c'))
+html=html.replace("<script>\n'use strict';",mock+"<script>\n'use strict';")
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
-    page=browser.new_page(viewport={'width':1280,'height':900},device_scale_factor=1)
-    errors=[]
-    page.on('pageerror',lambda e:errors.append(str(e)))
+    page=browser.new_page(viewport={'width':1280,'height':900})
+    err=[];page.on('pageerror',lambda e:err.append(str(e)))
     page.set_content(html,wait_until='load')
-    page.wait_for_selector('.item',timeout=10000)
-    assert page.locator('.item').count()==7
-    page.screenshot(path=str(ROOT/'output'/'editor_desktop.png'),full_page=True)
-    top_before=page.locator('.rankrow').count()
-    checkbox=page.locator('.item').last.locator('[data-kind=top]')
-    changed=not checkbox.is_checked()
-    checkbox.set_checked(changed)
-    page.wait_for_timeout(250)
-    assert page.locator('.rankrow').count()==top_before+(1 if changed else -1)
-    mobile=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
-    mobile.set_content(html,wait_until='load')
-    mobile.wait_for_selector('.item')
-    mobile.screenshot(path=str(ROOT/'output'/'editor_mobile.png'),full_page=True)
-    assert not errors,errors
-    print('BROWSER UI PASS: 7 candidates, first-pass TOP',top_before,'checkbox interaction, desktop/mobile screenshots')
+    page.locator('[data-view=edit]').click()
+    page.locator('[data-queue=all]').click()
+    page.wait_for_selector('.queue-row',timeout=10000)
+    assert page.locator('.queue-row').count()==7
+    page.locator('.queue-open').first.click()
+    count=page.locator('.rankrow').count()
+    page.locator('#detailTop').check()
+    page.wait_for_timeout(200)
+    assert page.locator('.rankrow').count()==count+1
+    assert not err,err
     browser.close()
+print('Browser smoke PASS: 7 sample records and 1 explicit TOP selection')

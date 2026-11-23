@@ -25,3 +25,10 @@ interest_terms:
 section_display:
   mfds: [mfds.guides, mfds.regulations, mfds.press, mfds.notices]
   industry: [industry.policy, industry.market, industry.global, industry.rnd]
+
+# 제목 기반 후보 분류 제안값: 관련성 확정 또는 자동 수록 아님.
+industry_section_keywords:
+  industry.policy: [규제, 고시, 법령, 식약처, 심사, 약가, 급여, 허가, 가이드라인, 보험등재]
+  industry.market: [시장, 공급, 출시, 계약, 투자, 인수, 매출, 파트너십, MOA, MOU]
+  industry.global: [FDA, EMA, 유럽, 미국, 일본, 해외, 글로벌, 수출, 국제]
+  industry.rnd: [임상, 연구, 개발, 신약, GLP-1, ADC, 항체, 바이오, 후보물질, 치료제]
