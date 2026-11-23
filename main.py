@@ -17,6 +17,7 @@ from meditip.render import render
 from meditip.workflow import confirm, confirmed_html, week_label
 from meditip.ai_review import review_payload, analyze
 from meditip.server import serve
+from meditip.app_config import load_project_env
 
 ROOT=Path(__file__).resolve().parent
 DEFAULT_DB=ROOT/'data'/'newsletter.db'
@@ -26,6 +27,7 @@ def read_config():return yaml.safe_load((ROOT/'config'/'sources.yaml').read_text
 def read_editorial():return yaml.safe_load((ROOT/'config'/'editorial.yaml').read_text(encoding='utf8'))
 
 def main():
+    load_project_env(ROOT)
     p=argparse.ArgumentParser(description='MEDiTIP standalone newsletter MVP (never sends email)')
     p.add_argument('--db',default=str(DEFAULT_DB),help='SQLite path')
     sub=p.add_subparsers(dest='command',required=True)

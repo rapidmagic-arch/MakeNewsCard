@@ -27,6 +27,8 @@ INDUSTRY_HINTS={
 
 def group_proposal(row,config=None):
     """Classify a metadata candidate using user groups; never commit an editorial decision."""
+    if row['verification'] == 'needs_title_review' or len(row['title'] or '') > 190:
+        return 'industry.unclassified','review_needed',False,'제목 추출 검증 필요 · 원본 확인 후 분류',None
     text=((row['title'] or '')+' '+(row['summary_source'] or '')).casefold()
     if config is not None and 'review_groups' in config:
         groups=config['review_groups']
@@ -69,6 +71,8 @@ def industry_proposal(row,config=None):
 
 def proposal_for(row):
     """Imported GPT data takes precedence only when actually supplied."""
+    if row.get('verification') == 'needs_title_review' or len(row.get('title') or '') > 190:
+        return False, row.get('section_override') or row['section']
     imported=(row.get('ai_score') is not None or row.get('ai_reason') is not None
               or row.get('ai_section') is not None or bool(row.get('ai_summary')))
     if imported:

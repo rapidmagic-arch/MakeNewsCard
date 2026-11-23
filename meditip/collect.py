@@ -67,21 +67,55 @@ def parse_feed(content,base,source_key,section):
     return out
 
 
+def _linked_title(anchor):
+    """Prefer a dedicated headline; never silently treat an article excerpt as a verified title."""
+    raw=' '.join(anchor.get_text(' ',strip=True).split())
+    candidates=[]
+    for attr in ('title','aria-label'):
+        if anchor.get(attr):candidates.append(str(anchor.get(attr)).strip())
+    # Site-specific lists often put the title in a nested h2/h3 or subject/tit element.
+    for el in anchor.select('h1,h2,h3,h4,h5,[class*="title"],[class*="subject"],[class*="tit"]'):
+        candidates.append(' '.join(el.get_text(' ',strip=True).split()))
+    candidates.append(raw)
+    for title in candidates:
+        if 8 <= len(title) <= 190 and '\n' not in title:
+            return title, 'metadata_only', raw
+    if len(raw) >= 8:
+        # Display a clearly *unverified* excerpt while preserving the complete link text as evidence.
+        return '[제목 확인 필요] '+raw[:85]+('…' if len(raw)>85 else ''), 'needs_title_review', raw
+    return None, 'needs_title_review', raw
+
+
+def _listed_date(context):
+    """Prefer structured date elements before surrounding-list text."""
+    for el in context.select('time[datetime],[datetime],[class*="date"],[class*="time"]')[:12]:
+        value=el.get('datetime') or el.get('data-date') or el.get_text(' ',strip=True)
+        found=norm_date(str(value))
+        if found:return found,'structured_list_date'
+    result=norm_date(context.get_text(' ',strip=True)[:500])
+    return result,'list_context' if result else 'unknown'
+
+
 def parse_public_list(content,base,source_key,source_group,section):
     soup=BeautifulSoup(content,'html.parser');out={}
     for a in soup.find_all('a',href=True):
         href=urljoin(base,a['href']);p=urlparse(href)
         if p.hostname!=urlparse(base).hostname or not ARTICLE_RE.search(href):continue
-        title=' '.join(a.get_text(' ',strip=True).split())
-        if len(title)<8: continue
+        title, verification, raw_link_text = _linked_title(a)
+        if not title:continue
         surrounding=a.find_parent('tr') or a.find_parent('li') or a.find_parent('article') or a.parent
-        date=norm_date(surrounding.get_text(' ',strip=True)[:500])
+        date,date_method=_listed_date(surrounding)
         query=parse_qs(p.query)
         sid=(query.get('seq') or query.get('idxno') or query.get('ID') or query.get('nid') or [None])[0]
+        previous=out.get(href)
+        if previous and previous['verification']=='metadata_only' and verification=='needs_title_review':
+            continue  # a later, noisy duplicate link must not replace a cleaner headline
         out[href]={ 'source_key':source_key,'source_group':source_group,'section':section,
                    'source_id':sid,'url':href,'title':title,'published_at':date,
-                   'verification':'metadata_only','relevance':'review_needed',
-                   'mandatory':False,'original_metadata':{'discovery_method':'public_list','list_url':base}}
+                   'verification':verification,'relevance':'review_needed',
+                   'mandatory':False,'original_metadata':{'discovery_method':'public_list','list_url':base,
+                    'title_extraction':'needs_review' if verification=='needs_title_review' else 'headline_candidate',
+                    'raw_link_text':raw_link_text[:6000], 'date_extraction':date_method}}
     return list(out.values())
 
 
