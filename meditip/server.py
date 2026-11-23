@@ -10,7 +10,7 @@ import threading
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
 import yaml
 
@@ -20,6 +20,8 @@ from .edition import prepare, set_top_order, update_decision, bulk_industry, imp
 from .render import render
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
+from .app_config import load_project_env
+from .library import library_page, archived_html
 from .review_groups import init_groups, list_groups, save_group, delete_group, with_groups
 
 
@@ -36,6 +38,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
           sources_path=None, editorial_path=None):
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
+    load_project_env(root)
     editor = Path(editor_path).read_text(encoding='utf8')
     editor_css = (root/'assets'/'editor.css').read_text(encoding='utf8')
     sources_path = Path(sources_path or root/'config'/'sources.yaml')
@@ -164,6 +167,26 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                                 'week_label':week_label(edition['period_start'],edition['period_end']),
                                 'run_total':total_runs,'undated_count':undated,
                                 'out_of_period_count':out_of_period})
+                    return
+                if p == '/api/library':
+                    params=parse_qs(urlsplit(self.path).query)
+                    status=params.get('status',['confirmed'])[0]
+                    query=params.get('q',[''])[0]
+                    page=int(params.get('page',['1'])[0])
+                    with connect(db_path) as con:
+                        data=library_page(con,status,query,page,12)
+                    self._json(data)
+                    return
+                if p == '/api/library/html':
+                    params=parse_qs(urlsplit(self.path).query)
+                    eid=params.get('edition_id',[''])[0]
+                    with connect(db_path) as con:
+                        html=archived_html(con,eid)
+                    if html is None:
+                        self._json({'error':'확정된 뉴스레터가 없거나 접근할 수 없어.'},404)
+                    else:
+                        filename='newsletter_archive.html' if params.get('download',['0'])[0]=='1' else None
+                        self._respond(200,html,'text/html; charset=utf-8',download=filename)
                     return
                 if p == '/api/editions':
                     with connect(db_path) as con:
