@@ -40,10 +40,10 @@ with sync_playwright() as pl:
  assert p.locator('.view-panel:visible').count()==1
  assert '170건' in p.locator('#dashCount').inner_text()
  p.screenshot(path=str(root/'output'/'workspace_dashboard.png'),full_page=True)
- p.locator('[data-view="edit"]').click();p.wait_for_selector('.item:visible')
- assert p.locator('.item:visible').count()==12
+ p.locator('[data-view="edit"]').click();p.wait_for_selector('.queue-row:visible')
+ assert p.locator('.queue-row:visible').count()==12
  p.locator('#industrySection').select_option('industry.market')
- assert p.locator('.item:visible').count()==12
+ assert p.locator('.queue-row:visible').count()==12
  p.screenshot(path=str(root/'output'/'workspace_edit.png'),full_page=True)
  p.locator('[data-view="settings"]').click();assert 'config/sources.yaml' in p.locator('#view-settings').inner_text()
  p.locator('[data-view="preview"]').click();assert p.locator('#confirmedBy').count()==1

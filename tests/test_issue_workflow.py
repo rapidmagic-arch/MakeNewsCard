@@ -42,6 +42,7 @@ def test_confirm_snapshot_immutable_and_no_editorial_mutation(issue_db):
     rows=edition_rows(issue_db,'week')
     industry=next(x for x in rows if x['source_group']=='industry')
     update_decision(issue_db,'week',industry['id'],{'include_detail':True,'summary_override':'담당자 확인 요약'})
+    set_top_order(issue_db,'week',[industry['id']])
     result=confirm(issue_db,'week',TEMPLATE,'담당자','893')
     assert result['status']=='confirmed' and len(result['html_sha256'])==64
     assert confirm_details(issue_db,'week')['issue_number']=='893'

@@ -36,7 +36,7 @@ def test_prepare_empty_then_collect_suggests(tmp_path):
                       'title': '확인용 테스트 기사', 'url': 'https://www.mfds.go.kr/brd/m_99/view.do?seq=555',
                       'published_at': '2026-11-17'})
         assert prepare(c, 'new') == 1
-        assert edition_rows(c, 'new')[0]['top_selected'] == 1
+        assert edition_rows(c, 'new')[0]['top_selected'] == 0
 
 
 def test_ui_collect_and_new_edition_without_network(tmp_path, monkeypatch):
@@ -45,12 +45,12 @@ def test_ui_collect_and_new_edition_without_network(tmp_path, monkeypatch):
         setup(c)
         ensure_edition(c, 'demo', '2026-11-16', '2026-11-22')
 
-    def fake_collect(con, spec, start, end, mode='board', max_pages=2):
+    def fake_collect(con, spec, start, end, mode='board', max_pages=2, edition_id=None):
         save_item(con, {'source_key': spec['key'], 'source_group': 'mfds',
                         'section': spec['html_section'], 'url': 'https://www.mfds.go.kr/brd/m_99/view.do?seq=555',
                         'title': '테스트 보도자료', 'published_at': start, 'verification': 'metadata_only'})
         con.commit()
-        log_run(con, spec['key'], start, end, 'partial', 1, 1, {'test': 'fake offline collection'})
+        log_run(con, spec['key'], start, end, 'partial', 1, 1, {'test': 'fake offline collection'}, edition_id=edition_id)
         return {'source': spec['key'], 'status': 'partial', 'records': 1, 'pages': 1,
                 'issues': ['Offline fixture; no completeness claim']}
 
@@ -111,6 +111,6 @@ def test_ui_collect_and_new_edition_without_network(tmp_path, monkeypatch):
     assert job['results'][0]['status'] == 'partial'
     status, e = req('GET', '/api/edition')
     assert e['edition']['period_start'] == '2026-11-23'
-    assert len(e['items']) == 1 and e['items'][0]['top_selected'] == 1
+    assert len(e['items']) == 1 and e['items'][0]['top_selected'] == 0
     assert len(e['runs']) == 1 and e['runs'][0]['status'] == 'partial'
     assert req('GET', '/export/html')[0] == 200

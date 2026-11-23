@@ -23,16 +23,16 @@ def testdb(tmp_path):
         prepare(c,'test')
         yield c
 
-def test_seven_records_and_top_four(testdb):
+def test_seven_records_and_top_starts_unselected(testdb):
     rows=edition_rows(testdb,'test')
     assert len(rows)==7
-    assert sum(bool(x['top_selected']) for x in rows)==4
+    assert sum(bool(x['top_selected']) for x in rows)==0
     assert all(x['include_detail'] for x in rows)
 
 def test_top_is_independent_of_mandatory(testdb):
     rows=edition_rows(testdb,'test')
-    top=[r['id'] for r in rows if r['top_selected']]
-    set_top_order(testdb,'test',top[:2])
+    top=[r['id'] for r in rows[:2]]
+    set_top_order(testdb,'test',top)
     assert sum(x['top_selected'] for x in edition_rows(testdb,'test'))==2
     assert sum(x['include_detail'] for x in edition_rows(testdb,'test'))==7
     with pytest.raises(ValueError):update_decision(testdb,'test',top[0],{'include_detail':False})

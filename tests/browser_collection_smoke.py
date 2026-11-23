@@ -71,10 +71,11 @@ with sync_playwright() as pl:
     page.on('pageerror',lambda e:errors.append(str(e)))
     page.set_content(html,wait_until='load')
     page.locator('[data-view=edit]').click()
-    page.wait_for_selector('.item',timeout=6000)
+    page.locator('[data-queue=all]').click()
+    page.wait_for_selector('.queue-row',timeout=6000)
     page.locator('[data-view=collect]').click()
     page.wait_for_selector('#sourceList input',timeout=6000)
-    assert page.locator('.item').count()==7
+    assert page.locator('.queue-row').count()==7
     assert page.locator('#sourceList input').count()>=8
     assert not page.locator('.top-picker').is_visible()
     assert page.locator('.issue-setup #colStart').count()==1
