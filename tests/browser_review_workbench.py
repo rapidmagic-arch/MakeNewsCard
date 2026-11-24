@@ -75,6 +75,7 @@ html=html.replace("<script>\n'use strict';",mock+"<script>\n'use strict';")
 with sync_playwright() as pl:
     browser=pl.chromium.launch(headless=True,args=['--no-sandbox'])
     page=browser.new_page(viewport={'width':1400,'height':900});errs=[];page.on('pageerror',lambda e:errs.append(str(e)))
+    page.on('dialog',lambda dialog:dialog.accept())
     page.set_content(html,wait_until='load')
     page.wait_for_function("document.querySelector('#stats').textContent.includes('208')",timeout=9000)
     page.locator('[data-view="edit"]').click();page.wait_for_selector('.queue-row')
@@ -109,6 +110,7 @@ with sync_playwright() as pl:
     assert page.evaluate("window.__calls.at(-1).path")=='/api/decision'
     assert not errs,errs
     mobile=browser.new_page(viewport={'width':390,'height':844});mobileerrs=[];mobile.on('pageerror',lambda e:mobileerrs.append(str(e)))
+    mobile.on('dialog',lambda dialog:dialog.accept())
     mobile.set_content(html,wait_until='load');mobile.wait_for_function("document.querySelector('#stats').textContent.includes('208')")
     mobile.locator('[data-view="edit"]').click();mobile.wait_for_selector('.queue-row')
     mobile.screenshot(path=str(ROOT/'output'/'review_workbench_mobile.png'),full_page=True)

@@ -78,10 +78,25 @@ def mfds_unique_sectioned(rows):
         yield row,section
 
 
+SOURCE_NAMES={'dailypharm':'데일리팜','medisobizanews':'메디소비자뉴스','medicaltimes':'메디칼타임즈','kpanews':'약사공론','yakup':'약업신문','company_manual':'메디팁 등록 자료'}
+
+def source_name(row):
+    if row.get('source_group')=='company':
+        import json
+        return (json.loads(row.get('original_metadata') or '{}').get('publisher') or SOURCE_NAMES.get(row['source_key'],row['source_key']))
+    return SOURCE_NAMES.get(row['source_key'],row['source_key'])
+
+def company_cards(items):
+    cards=[]
+    for x in unique_for_display(items):
+        summary=txt(effective(x,'summary'))
+        cards.append('<tr><td style="padding:10px;border:1px solid #d3dce5;font:13px/1.6 Malgun Gothic,Arial,sans-serif">'+link(x)+'<br><span style="font-size:11px;color:#526477">'+txt(source_name(x))+'</span>'+('<p style="margin:4px 0">'+summary+'</p>' if summary else '')+'</td></tr>')
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'+''.join(cards)+'</table>' if cards else ''
+
 def list_html(items,group,final=False):
     res=[]
     for x in unique_for_display(items):
-        label=txt(x.get('published_at') or '날짜 미확인') if group=='mfds' else txt(x['source_key'])
+        label=txt(x.get('published_at') or '날짜 미확인') if group=='mfds' else txt(source_name(x))
         res.append('<span style="display:block;padding:2px 0;line-height:1.45;font-size:12px;overflow-wrap:anywhere" data-record-id="'+txt(x['id'])+'">'
                    +label+'　'+link(x)+'</span>')
     return ''.join(res) or ('' if final else '<span style="color:#8a5962;font-size:12px">확인된 수록 자료 없음 (수집 완료 여부 별도 확인)</span>')
@@ -118,11 +133,11 @@ def approval_table(items,kind,final=False):
         raw=json.loads(r.get('original_metadata') or '{}').get('csv_row') or {}
         vals=[]
         for f in fields:
-            aliases={'승인일':['승인일자','허가일','허가일자'],'임상시험제목':['임상시험 제목'],
+            aliases={'승인일':['승인일자','허가일','허가일자'],'허가일':['허가일자','승인일','승인일자'],'임상시험제목':['임상시험 제목'],
                      '임상시험 단계':['임상시험단계','단계'], '제품명':['품목명','제품명칭']}
             value=raw.get(f) or next((raw.get(x) for x in aliases.get(f,[]) if raw.get(x)),None)
             if not value and f in ('임상시험제목','제품명'):value=r['title']
-            if not value and f=='승인일':value=r.get('published_at')
+            if not value and f in ('승인일','허가일'):value=r.get('published_at')
             vals.append('<td style="padding:6px;vertical-align:top">'+txt(value or '—')+'</td>')
         parts.append('<tr>'+''.join(vals)+'</tr>')
     parts.append('</tbody></table>')
@@ -160,6 +175,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     selected=validate_template_id(template_id or edition.get('template_id') or 'classic')
     if selected=='outlook_cards':
         return render_outlook_cards(con,edition_id,final=final,preview=preview)
+    from .company import company_output_rows
     rows=edition_rows(con,edition_id)
     publish_view=final or preview
     if publish_view:
@@ -169,12 +185,27 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
                 row['ai_summary']=None
     tops=top_output_rows(rows, edition['top_target'])
     soup=BeautifulSoup(Path(template_path).read_text(encoding='utf-8'),'html.parser')
+    from .branding import get_branding, default_banner, contact_lines
+    branding=get_branding(con)
+    for slot,src,width in (('logo',branding.get('logo',''),320),('banner',branding.get('banner') or default_banner(template_path),800)):
+        node=soup.select_one('[data-image-slot="'+slot+'"]')
+        if node is not None and src:
+            img=soup.new_tag('img',src=src,alt='MEDiTIP 뉴스레터 '+('MVP 이미지' if slot=='banner' and not branding.get('banner') else slot),width=str(width))
+            img['style']='display:block;width:100%;max-width:'+str(width)+'px;height:auto;border:0'
+            node.clear()
+            node.append(img)
+    contact=soup.select_one('[data-contact-slot]')
+    if contact:
+        contact.clear()
+        for line in ['MEDiTIP 뉴스레터 · 의약품 시장 정보 제공']+contact_lines(branding):
+            if contact.contents:contact.append(soup.new_tag('br'))
+            contact.append(line)
     first=soup.select_one('#i8voq4');second=soup.select_one('#icsna')
     if not first or not second:raise ValueError('Original 892 TOP layout markers not found')
     first.replace_with(BeautifulSoup(top_table(tops),'html.parser'))
     second.decompose()
     replacements={
-       'company_news':list_html([r for r in rows if r['source_group']=='company' and r['include_detail']],'company',publish_view),
+       'company_news':company_cards(company_output_rows(rows)),
        'mfds_all':group_html(rows,'mfds',publish_view),
        'industry_all':group_html(rows,'industry',publish_view)}
     for name,content in replacements.items():
@@ -191,27 +222,32 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     banner=soup.find(string=lambda s:s and 'MEDITIP MVP 테스트' in s)
     if banner:
         banner.replace_with(('MEDiTIP 뉴스레터 · '+issue_label) if publish_view else ('MEDiTIP 뉴스레터 편집 초안 · '+edition['title']+' · 외부 발송 금지'))
-    clinical=soup.select_one('[data-image-slot="clinical_approvals"]')
-    if clinical:
-        clinic=[r for r in rows if r['source_group']=='clinical' and r['include_detail']]
-        treatment=[r for r in rows if r['source_group']=='treatment' and r['include_detail']]
-        if clinic or treatment:
-            fragment=approval_table(clinic,'clinical',publish_view)
-            if treatment:
-                fragment+='<p style="color:#2980b9;font-weight:bold">치료목적 사용승인</p>'+approval_table(treatment,'treatment',publish_view)
-            clinical.replace_with(BeautifulSoup(fragment,'html.parser'))
-        else:clinical.string='' if publish_view else '임상시험 승인현황: 데이터 수집 연동 전 / 자동 작성되지 않음'
-    drugs=[r for r in rows if r['source_group']=='drug' and r['include_detail']]
-    if drugs:
-        head=soup.find(string=lambda s:s and '주간 허가현황' in s and '의약품' in s)
-        if head:
-            anchor=head.find_parent('p') or head.parent
-            anchor.insert_after(BeautifulSoup(approval_table(drugs,'drug',publish_view),'html.parser'))
+    for slot, groups in (('clinical', ('clinical','treatment')), ('drug', ('drug',))):
+        node=soup.select_one('[data-approval-slot="'+slot+'"]')
+        if node is None:raise ValueError('Missing approval slot: '+slot)
+        node.clear()
+        for kind in groups:
+            selected_rows=[r for r in rows if r['source_group']==kind and r['include_detail']]
+            if selected_rows:
+                if kind=='treatment':
+                    node.append(BeautifulSoup('<p style="color:#2980b9;font-weight:bold">치료목적 사용승인</p>','html.parser'))
+                node.append(BeautifulSoup(approval_table(selected_rows,kind,publish_view),'html.parser'))
+        if not node.get_text(strip=True) and not publish_view:
+            node.string='등록된 승인·허가 자료 없음'
+    for slot, heading in (('company-heading','이번 호 Meditip 주요 소식'),
+                          ('industry-heading','한 주간 제약 산업 및 제도 업데이트 ('+edition['period_start']+' ~ '+edition['period_end']+')')):
+        node=soup.select_one('[data-heading-slot="'+slot+'"]')
+        if node:
+            node.clear()
+            node.append(BeautifulSoup('<strong style="font: bold 19px Malgun Gothic,Arial,sans-serif;color:#2980b9">'+txt(heading)+'</strong>','html.parser'))
+    for anchor in soup.find_all('a',href=True):
+        if anchor['href'].startswith('https://nedrug.mfds.go.kr/searchClinic'):
+            anchor['href']='https://nedrug.mfds.go.kr/searchClinic'
     # Original 892 issue date/number is historic; it must not imply a new issued newsletter.
     for t in list(soup.find_all(string=True)):
         val=str(t)
         if '892호' in val and '발간수기' in val:
-            t.replace_with(('MEDiTIP '+issue_label+' (' if final else 'MEDiTIP 뉴스레터 편집 초안 (')+edition['period_start']+' ~ '+edition['period_end']+')')
+            t.replace_with('MEDiTIP 뉴스레터 · '+issue_label)
         elif '11월' in val and '둘째 주' in val:
             if 'Meditip 주요' in val:
                 t.replace_with('이번 호 Meditip 주요 소식')
@@ -228,6 +264,9 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
         for t in list(soup.find_all(string=True)):
             if any(marker in str(t) for marker in ('[원본 로고 이미지','[원본 배너 이미지','[담당자 연락처]','[담당자 이메일]','[수신거부]','[unsubscription]')):
                 t.replace_with('')
+    publication=soup.select_one('[data-publication-slot]')
+    if publication:
+        publication.string=' · '.join(x for x in (issue_label, ('발행일 '+edition['publication_date']) if edition.get('publication_date') else '', '수집 기간 '+edition['period_start']+' ~ '+edition['period_end']) if x)
     html=str(soup)
     if '{{' in html and '}}' in html:raise ValueError('Unresolved template slots remain')
     return html

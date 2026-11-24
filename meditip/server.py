@@ -14,7 +14,9 @@ from urllib.parse import urlsplit, parse_qs
 
 import yaml
 
-from .collect import collect_source, source_specs
+from .collect import collect_source, source_specs, import_approval_bytes
+from .company import register_company, set_company_order
+from .branding import public_branding, save_branding
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
@@ -133,7 +135,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Security-Policy',
-                             "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
+                             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
             if download:
                 self.send_header('Content-Disposition', f'attachment; filename="{download}"')
             self.end_headers()
@@ -212,11 +214,12 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         ed=get_edition(con,active['edition'])
                         groups=list_groups(con)
+                        branding=public_branding(con)
                     editorial=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
-                                'review_groups':groups,
+                                'review_groups':groups,'branding':branding,
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
                     return
@@ -288,7 +291,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 p = urlsplit(self.path).path
-                max_payload = 1_000_000 if p == '/api/ai/import' else 100_000
+                max_payload = 4_000_000 if p in ('/api/approval/import','/api/branding/save') else (1_000_000 if p == '/api/ai/import' else 100_000)
                 if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
@@ -359,7 +362,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             return
                         with connect(db_path) as con:
                             result=confirm(con,active['edition'],template_path,
-                                           obj.get('confirmed_by'),obj.get('issue_number') or None)
+                                           obj.get('confirmed_by'),obj.get('issue_number') or None,obj.get('publication_date'))
                     self._json({'ok':True,**result})
                     return
                 if p == '/api/ai/review':
@@ -411,6 +414,47 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with lock, connect(db_path) as con:
+                    if p == '/api/branding/save':
+                        self._json({'ok':True,'branding':save_branding(con,obj)})
+                        return
+                    if p == '/api/company/register':
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        iid=register_company(con,active['edition'],obj,with_groups(con,rules))
+                        self._json({'ok':True,'item_id':iid})
+                        return
+                    if p == '/api/company/order':
+                        set_company_order(con,active['edition'],obj.get('ids'))
+                        self._json({'ok':True})
+                        return
+                    if p == '/api/approval/import':
+                        import base64, binascii
+                        ed=require_draft(con,active['edition'])
+                        try:
+                            raw=base64.b64decode(obj.get('content',''),validate=True)
+                        except (ValueError,TypeError,binascii.Error):
+                            raise ValueError('Invalid CSV file')
+                        if not raw or len(raw)>2_500_000:
+                            raise ValueError('CSV size must be 1..2500000 bytes')
+                        result=import_approval_bytes(con,raw,obj.get('kind'),edition=ed)
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        prepare(con,ed['id'],with_groups(con,rules))
+                        self._json({'ok':True,**result})
+                        return
+                    if p == '/api/edition/publication':
+                        require_draft(con,active['edition'])
+                        number=obj.get('issue_number') or None
+                        published=obj.get('publication_date') or None
+                        if number is not None and (not isinstance(number,str) or not re.fullmatch(r'[0-9A-Za-z가-힣_-]{1,30}',number)):
+                            raise ValueError('Invalid issue number')
+                        if number and con.execute('SELECT 1 FROM editions WHERE issue_number=? AND id<>?',(number,active['edition'])).fetchone():
+                            raise ValueError('Issue number already in use')
+                        if published is not None:
+                            if not isinstance(published,str) or date.fromisoformat(published).isoformat()!=published:
+                                raise ValueError('Invalid publication date')
+                        con.execute('UPDATE editions SET issue_number=?,publication_date=? WHERE id=?',(number,published,active['edition']))
+                        con.commit()
+                        self._json({'ok':True})
+                        return
                     if p == '/api/review-groups/save':
                         group_id=save_group(con,obj)
                         self._json({'ok':True,'id':group_id,'groups':list_groups(con)})

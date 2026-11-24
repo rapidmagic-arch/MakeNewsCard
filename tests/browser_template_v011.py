@@ -1,0 +1,97 @@
+"""Real localhost browser regression; no external source or GPT calls."""
+import socket
+import tempfile
+import threading
+import time
+from pathlib import Path
+import requests
+from playwright.sync_api import sync_playwright, expect
+from meditip.db import connect,setup,ensure_edition,save_item
+from meditip.edition import prepare
+from meditip.server import serve
+
+ROOT=Path(__file__).resolve().parents[1]
+with tempfile.TemporaryDirectory() as tmp:
+    db=Path(tmp)/'browser.db'
+    with connect(db) as con:
+        setup(con)
+        ensure_edition(con,'week','2026-11-16','2026-11-22')
+        save_item(con,dict(source_key='medicaltimes',source_group='industry',section='industry.unclassified',
+          title='메디팁 시장 테스트 기사',url='https://www.medicaltimes.com/Main/News/View.html?ID=9123',
+          published_at='2026-11-17'))
+        con.commit();prepare(con,'week')
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+    threading.Thread(target=serve,args=(db,ROOT/'templates/892_slots_original.html',ROOT/'editor.html','week',port),daemon=True).start()
+    base=f'http://127.0.0.1:{port}'
+    for _ in range(100):
+        try:
+            if requests.get(base,timeout=1).ok:break
+        except requests.RequestException:time.sleep(.03)
+    else:raise AssertionError('local editor unavailable')
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True,args=['--no-sandbox'])
+        page=browser.new_page(viewport={'width':1440,'height':900})
+        errors=[]
+        page.on('pageerror',lambda err:errors.append(str(err)))
+        page.on('dialog',lambda dialog:dialog.accept())
+        page.goto(base)
+        page.locator('[data-view=edit]').click()
+        page.locator('[data-queue=all]').click()
+        expect(page.locator('.queue-row')).to_have_count(1)
+        page.locator('.queue-open').first.click()
+        page.locator('#detailCompany').check()
+        expect(page.locator('#companyList')).to_contain_text('메디팁 시장 테스트 기사')
+        page.locator('#detailTop').check()
+        expect(page.locator('.queue-row.active .tag-top')).to_have_text('TOP 1 · 출력')
+        page.locator('#closeDetail').click()
+        page.locator('summary').filter(has_text='회사 소식 등록').click()
+        page.locator('#companyTitle').fill('직접 등록 회사 소식')
+        page.locator('#companyPublisher').fill('담당자 자료')
+        page.locator('#companyUrl').fill('https://example.org/company')
+        page.locator('#companyDate').fill('2026-11-18')
+        page.locator('#companySummary').fill('승인된 회사 소식 요약')
+        page.locator('#saveCompany').click()
+        expect(page.locator('#companyStatus')).to_have_text('등록 완료')
+        expect(page.locator('#companyList .rankrow')).to_have_count(2)
+        page.locator('#companyList [data-company-move="1"]').first.click()
+        page.locator('[data-view=collect]').click()
+        page.locator('#approvalKind').select_option('drug')
+        page.locator('#approvalFile').set_input_files({'name':'approval.csv','mimeType':'text/csv','buffer':'품목명,업체명,허가일자\nBrowser-Drug,Maker,2026-11-20\n'.encode('utf8')})
+        page.locator('#importApproval').click()
+        expect(page.locator('#approvalStatus')).to_contain_text('등록 1건')
+        page.locator('[data-view=settings]').click()
+        expect(page.locator('#brandingImages')).to_contain_text('MVP 이미지')
+        page.locator('#brandContact').fill('Browser Test Contact')
+        page.locator('#brandEmail').fill('review@example.org')
+        page.locator('#saveBranding').click()
+        expect(page.locator('#brandingStatus')).to_contain_text('저장 완료')
+        assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='Browser Test Contact'
+        page.locator('[data-view=preview]').click()
+        page.locator('#issueNumber').fill('901')
+        page.locator('#publicationDate').fill('2026-11-25')
+        page.locator('#savePublication').click()
+        expect(page.locator('#confirmMessage')).to_contain_text('저장 완료')
+        expect(page.locator('#previewTopState')).to_contain_text('주요 뉴스 1건 출력')
+        frame=page.frame_locator('#newsletterPreview')
+        expect(frame.locator('[data-slot="company_news"]')).to_contain_text('직접 등록 회사 소식')
+        expect(frame.locator('[data-approval-slot="drug"]')).to_contain_text('Browser-Drug')
+        expect(frame.locator('[data-publication-slot]')).to_contain_text('발행일 2026-11-25')
+        expect(frame.locator('[data-contact-slot]')).to_contain_text('Browser Test Contact')
+        expect(frame.locator('[data-image-slot="banner"] img')).to_have_js_property('naturalWidth',400)
+        page.locator('#confirmedBy').fill('Test Operator')
+        page.locator('#finalAck').check()
+        page.locator('#confirmIssue').click()
+        expect(page.locator('#finalState')).to_contain_text('확정본')
+        expect(page.locator('#confirmIssue')).to_be_disabled()
+        frozen=requests.get(base+'/export/html',timeout=3).content
+        assert b'Browser-Drug' in frozen
+        page.locator('[data-view=settings]').click()
+        page.locator('#brandContact').fill('Changed Contact')
+        page.locator('#saveBranding').click()
+        expect(page.locator('#brandingStatus')).to_contain_text('저장 완료')
+        assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='Changed Contact'
+        assert requests.get(base+'/export/html',timeout=3).content==frozen
+        assert not errors,errors
+        browser.close()
+print('v0.11 localhost browser: company, TOP, CSV, branding, publication and frozen HTML PASS')

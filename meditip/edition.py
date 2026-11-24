@@ -183,12 +183,14 @@ def prepare(con,edition_id,config=None,extra_ids=None):
 def update_decision(con,edition_id,item_id,changes):
     from .workflow import require_draft
     require_draft(con,edition_id)
-    valid={'include_detail','top_selected','top_rank','section_override','title_override','summary_override'}
+    valid={'include_detail','top_selected','top_rank','section_override','title_override','summary_override','company_selected'}
     unknown=set(changes)-valid
     if unknown:raise ValueError('Unknown editorial fields: '+','.join(sorted(unknown)))
     row=con.execute('''SELECT d.*,i.mandatory,i.source_group FROM decisions d JOIN items i ON i.id=d.item_id
                       WHERE d.edition_id=? AND d.item_id=?''',(edition_id,item_id)).fetchone()
     if row is None:raise ValueError('Edition item not found')
+    if 'company_selected' in changes and (row['source_group']!='industry' or not isinstance(changes['company_selected'],bool)):
+        raise ValueError('Only industry articles may be selected for company news')
     if row['mandatory'] and changes.get('include_detail') is False:
         raise ValueError('필수 수록으로 확인된 자료는 제외할 수 없어.')
     if changes.get('section_override') is not None:
@@ -199,7 +201,7 @@ def update_decision(con,edition_id,item_id,changes):
             raise ValueError('Section is incompatible with original source group')
     if 'include_detail' in changes:changes['detail_reviewed']=1
     if 'section_override' in changes:changes['section_reviewed']=1
-    for flag in ('top_selected','include_detail'):
+    for flag in ('top_selected','include_detail','company_selected'):
         if flag in changes:changes[flag]=int(bool(changes[flag]))
     if 'top_rank' in changes and changes['top_rank'] is not None:
         if not isinstance(changes['top_rank'],int) or changes['top_rank']<1:raise ValueError('rank must be a positive integer')

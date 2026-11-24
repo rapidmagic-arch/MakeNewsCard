@@ -29,6 +29,7 @@ window.fetch=async(path,opts)=>{
  }else if(path==='/api/top-order'){
   const body=JSON.parse(opts.body);
   for(const x of window.__seed.items){const i=body.ids.indexOf(x.id);x.top_selected=i<0?0:1;x.top_rank=i<0?null:i+1;}
+  window.__seed.top_output_ids=body.ids.slice(0,window.__seed.edition.top_target);
   data={ok:true};
  }else data={ok:true};
  return {ok:true,status:200,json:async()=>JSON.parse(JSON.stringify(data))}
@@ -45,10 +46,13 @@ with sync_playwright() as p:
     page.wait_for_selector('.queue-row',timeout=10000)
     assert page.locator('.queue-row').count()==7
     page.locator('.queue-open').first.click()
-    count=page.locator('.rankrow').count()
+    count=page.locator('#top .rankrow').count()
     page.locator('#detailTop').check()
     page.wait_for_timeout(200)
-    assert page.locator('.rankrow').count()==count+1
+    assert page.locator('#top .rankrow').count()==count+1
+    assert page.locator('.queue-row.active .tag-top').inner_text()=='TOP 1 · 출력'
+    page.locator('[data-view=preview]').click()
+    assert '주요 뉴스 1건 출력' in page.locator('#previewTopState').inner_text()
     assert not err,err
     browser.close()
 print('Browser smoke PASS: 7 sample records and 1 explicit TOP selection')

@@ -55,3 +55,10 @@
 - TOP 출력 제한(두 템플릿), 순서 변경, 확정 스냅샷, 반복 저장/편집 보존 회귀 테스트를 `tests/test_workflow_v09.py`에 추가했다.
 - 이 변경의 pytest 및 실제 브라우저 검증은 아직 실행하지 않았다. 이전 버전의 통과 기록을 v0.9 결과로 간주하지 않는다.
 - 사용자 Windows DB의 기존 중복 데이터는 접근하지 못해 미검증이며 자동 삭제하지 않았다.
+
+## v0.11 verification scope
+- `tests/test_template_v011.py`: company selection and ordering, repeat CSV events, period exclusion, two template outputs, approval slots, embedded MVP image hash, configured contact, frozen HTML.
+- `tests/browser_template_v011.py`: live localhost application through Playwright, company registration/selection, TOP preview, CSV upload, brand and publication settings, confirmation immutability.
+- Existing collection smoke now opens advanced settings before changing RSS; browser suite runs all files and reports combined failure status.
+- MVP banner file bytes checked against Git blob SHA `321c4b39bee0bf01dbec2539d7bef91064fe379a`. Actual Windows Outlook and live external data completeness remain outside automated verification.
+- The CI run associated with the final PR head is authoritative; this section lists coverage, not a test pass claim.

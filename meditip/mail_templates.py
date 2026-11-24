@@ -21,8 +21,11 @@ def validate_template_id(template_id):
 def render_outlook_cards(con, edition_id, final=False, preview=False):
     """Static Outlook-friendly email; same editorial decisions as classic renderer."""
     from .db import edition_rows, get_edition
-    from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table, top_output_rows
+    from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table, top_output_rows, source_name
+    from .company import company_output_rows
+    from .branding import get_branding, contact_lines
 
+    branding=get_branding(con)
     edition = get_edition(con, edition_id)
     rows = edition_rows(con, edition_id)
     issue = ('제' + edition['issue_number'] + '호') if edition.get('issue_number') else edition['title']
@@ -56,7 +59,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     def article_rows(entries, label_mode='date'):
         result = []
         for row in unique_for_display(entries):
-            label = row.get('published_at') if label_mode == 'date' else row.get('source_key')
+            label = row.get('published_at') if label_mode == 'date' else source_name(row)
             label = label or ('날짜 미확인' if label_mode == 'date' else '출처 미확인')
             result.append('<tr><td style="border-bottom:1px solid #e8eff5;padding:9px 20px;'
                           'font-family:Arial,Malgun Gothic,sans-serif;font-size:12px;line-height:19px;'
@@ -85,7 +88,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
         '<p style="font-size:12px;line-height:18px;color:#bcd4e6;margin:0 0 8px">MEDiTIP NEWSLETTER</p>',
         '<p style="font-size:23px;line-height:30px;font-weight:bold;margin:0">' + h(issue) + '</p>',
         '<p style="font-size:12px;line-height:18px;color:#d5e4ed;margin:8px 0 0">'
-        + h(edition['period_start']) + ' ~ ' + h(edition['period_end']) + '</p></td></tr>'
+        + ('발행일 '+h(edition['publication_date'])+' · ' if edition.get('publication_date') else '') + '수집 기간 '+ h(edition['period_start']) + ' ~ ' + h(edition['period_end']) + '</p></td></tr>'
     ]
     tops = top_output_rows(rows, edition['top_target'])
     if tops:
@@ -106,10 +109,10 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
             parts.append('</tr>')
         parts.append('</table></td></tr>')
 
-    company = [x for x in rows if x['source_group']=='company' and x['include_detail']]
+    company = company_output_rows(rows)
     if company:
         parts.append(section_title('메디팁 소식'))
-        parts.append(article_rows(company, 'date'))
+        parts.append(article_rows(company, 'source'))
 
     mfds_sectioned = list(mfds_unique_sectioned(rows))
     for key in ('mfds.guides','mfds.regulations','mfds.press','mfds.notices'):
@@ -139,7 +142,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     parts.extend([
         '<tr><td style="padding:22px 20px;margin-top:25px;border-top:1px solid #d9e4ec;'
         'font-family:Arial,Malgun Gothic,sans-serif;font-size:11px;line-height:17px;'
-        'color:#6a7d8c">MEDiTIP · 공개된 원문 링크를 확인해 주세요.</td></tr>',
+        'color:#6a7d8c">MEDiTIP · 공개된 원문 링크를 확인해 주세요.' + ''.join('<br>'+h(line) for line in contact_lines(branding)) + '</td></tr>',
         '</table></td></tr></table></body></html>',
     ])
     return ''.join(parts)

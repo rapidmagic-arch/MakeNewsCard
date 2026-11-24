@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - main
-      - feat/operator-ui-v010
   workflow_dispatch:
+concurrency:
+  group: regression-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -34,6 +36,10 @@ jobs:
       - name: Browser smoke
         run: |
           mkdir -p output
+          status=0
           for test in tests/browser_*.py; do
-            python "$test" || exit 1
+            echo "::group::$test"
+            python "$test" || status=1
+            echo "::endgroup::"
           done
+          exit "$status"

@@ -242,3 +242,37 @@ button:disabled{opacity:.48;cursor:not-allowed}
 .original-article .source-title{white-space:pre-wrap;line-height:1.7}
 .status:empty{display:none}
 @media(max-width:680px){.app-main>header{padding:14px 12px}.app-main>header h1{font-size:20px}.selection-bar .inclusion-toggle button{flex:none}}
+
+/* v0.11 semantic status palette, operator UI only */
+.tag,.queue-chips .tag{font-weight:650;border:1px solid transparent;border-radius:5px;padding:3px 7px;line-height:1.4}
+.tag.tag-neutral{background:#edf0f4;color:#49586a}
+.tag.selected,.queue-chips .tag.selected{background:#e1f3e9;color:#17633f}
+.tag.tag-top{background:#fff0cd;color:#80530f;border-color:#f0d79c}
+.tag.tag-ai{background:#eee7fa;color:#63358c}
+.tag.tag-rule{background:#e2eefb;color:#245f91}
+.tag.tag-review{background:#fff0df;color:#8a4b18}
+.tag.warn{background:#fce7e7;color:#9d3030}
+.card-status-tags{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.queue-tab[data-queue="recommended"]{color:#245f91}
+.queue-tab[data-queue="review"]{color:#8a4b18}
+.queue-tab[data-queue="included"]{color:#17633f}
+.queue-tab[aria-selected=true]{background:#e8f1f8;border-bottom-color:currentColor;font-weight:750}
+.inclusion-toggle #bulkIncludeSelected:not(:disabled){color:#17633f;background:#e1f3e9}
+.inclusion-toggle #bulkIncludeSelected[aria-pressed=true]{background:#18754b;color:white}
+.inclusion-toggle #bulkExcludeSelected:not(:disabled){color:#49586a;background:#edf0f4}
+.inclusion-toggle #bulkExcludeSelected[aria-pressed=true]{background:#526477;color:white}
+#runAi:not(:disabled){background:#245fa5;border-color:#245fa5}
+#stats .stat:nth-child(2){border-left-color:#18754b}
+#stats .stat:nth-child(2) b{color:#17633f}
+#stats .stat:nth-child(3){border-left-color:#bf8a2c}
+#stats .stat:nth-child(3) b{color:#80530f}
+.ai-counts,.top-state{font-size:13px;font-weight:600;color:#34536d;padding:9px 0;line-height:1.6}
+
+#companyList .rankrow{grid-template-columns:2rem minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+#companyList .company-open{background:transparent;border:0;text-align:left;padding:7px;color:#173f67;overflow-wrap:anywhere;white-space:normal}
+#companyList .company-open:hover{text-decoration:underline;background:#eef4f9}
+#companyList .rankrow .tag{white-space:nowrap}
+#companyList:empty{display:none}
+#view-edit .form-row,#view-collect .form-row{flex-wrap:wrap}
+#companySummary{min-height:70px}
+@media(max-width:600px){#companyList .rankrow{grid-template-columns:1.5rem minmax(0,1fr) auto auto;gap:5px}#companyList .rankrow .tag{grid-column:2;grid-row:2}#companyList .rankrow button[data-company-move]{grid-row:1}}
