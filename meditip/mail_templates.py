@@ -23,7 +23,9 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     from .db import edition_rows, get_edition
     from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table, top_output_rows, source_name
     from .company import company_output_rows
+    from .branding import get_branding, contact_lines
 
+    branding=get_branding(con)
     edition = get_edition(con, edition_id)
     rows = edition_rows(con, edition_id)
     issue = ('제' + edition['issue_number'] + '호') if edition.get('issue_number') else edition['title']
