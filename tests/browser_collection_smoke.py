@@ -65,7 +65,7 @@ window.fetch = async function(path, opts){
 mock=mock.replace('SEED',json.dumps(data,ensure_ascii=False).replace('<','\\u003c')).replace('SOURCES',json.dumps(sources,ensure_ascii=False))
 html=html.replace("<script>\n'use strict';",mock+"<script>\n'use strict';")
 with sync_playwright() as pl:
-    b=pl.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    b=pl.chromium.launch(headless=True,args=['--no-sandbox'])
     page=b.new_page(viewport={'width':1250,'height':870})
     errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
