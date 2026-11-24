@@ -267,3 +267,12 @@ button:disabled{opacity:.48;cursor:not-allowed}
 #stats .stat:nth-child(3){border-left-color:#bf8a2c}
 #stats .stat:nth-child(3) b{color:#80530f}
 .ai-counts,.top-state{font-size:13px;font-weight:600;color:#34536d;padding:9px 0;line-height:1.6}
+
+#companyList .rankrow{grid-template-columns:2rem minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+#companyList .company-open{background:transparent;border:0;text-align:left;padding:7px;color:#173f67;overflow-wrap:anywhere;white-space:normal}
+#companyList .company-open:hover{text-decoration:underline;background:#eef4f9}
+#companyList .rankrow .tag{white-space:nowrap}
+#companyList:empty{display:none}
+#view-edit .form-row,#view-collect .form-row{flex-wrap:wrap}
+#companySummary{min-height:70px}
+@media(max-width:600px){#companyList .rankrow{grid-template-columns:1.5rem minmax(0,1fr) auto auto;gap:5px}#companyList .rankrow .tag{grid-column:2;grid-row:2}#companyList .rankrow button[data-company-move]{grid-row:1}}
