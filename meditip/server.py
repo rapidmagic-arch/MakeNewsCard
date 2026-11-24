@@ -362,7 +362,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             return
                         with connect(db_path) as con:
                             result=confirm(con,active['edition'],template_path,
-                                           obj.get('confirmed_by'),obj.get('issue_number') or None)
+                                           obj.get('confirmed_by'),obj.get('issue_number') or None,obj.get('publication_date'))
                     self._json({'ok':True,**result})
                     return
                 if p == '/api/ai/review':
