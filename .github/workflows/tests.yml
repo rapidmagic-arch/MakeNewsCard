@@ -1,0 +1,39 @@
+name: Regression tests
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feat/operator-ui-v010
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install -r requirements.txt pytest playwright
+      - run: python -m compileall -q meditip main.py tests
+      - name: JavaScript syntax
+        run: |
+          python -c "from pathlib import Path; from bs4 import BeautifulSoup; p=BeautifulSoup(Path('editor.html').read_text(encoding='utf-8'),'html.parser'); Path('/tmp/editor.js').write_text('\n'.join(s.get_text() for s in p.find_all('script') if not s.get('src')),encoding='utf-8')"
+          node --check /tmp/editor.js
+      - run: python -m pytest -q
+      - run: python -m playwright install --with-deps chromium
+      - name: Browser smoke
+        run: |
+          mkdir -p output
+          for test in tests/browser_*.py; do
+            python "$test" || exit 1
+          done
