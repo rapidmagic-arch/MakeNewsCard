@@ -34,6 +34,9 @@ def validated_contact(obj):
 
 def save_default_contact(con,obj):
     data=validated_contact(obj)
+    # Keep the current effective publishing contact even before its first explicit save.
+    current=get_branding(con)
+    con.execute("INSERT OR IGNORE INTO newsletter_branding VALUES('branding',?)",(json.dumps(current,ensure_ascii=False),))
     con.execute("INSERT INTO newsletter_branding VALUES('default_contact',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (json.dumps(data,ensure_ascii=False),))
     con.commit()
