@@ -14,12 +14,12 @@ from urllib.parse import urlsplit, parse_qs
 
 import yaml
 
-from .collect import collect_source, source_specs, import_approval_bytes
+from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail
 from .company import register_company, set_company_order
 from .branding import public_branding, save_branding
 from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
-from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
+from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai, repair_medicaltimes_metadata
 from .render import render
 from .mail_templates import TEMPLATES, validate_template_id
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
@@ -380,6 +380,25 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                                    started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
                         threading.Thread(target=run_approval,args=(kind,ed['id']),daemon=True).start()
                     self._json(job_snapshot(),202)
+                    return
+                if p == '/api/article/recheck':
+                    item_id=obj.get('item_id')
+                    if not isinstance(item_id,str):raise ValueError('Select an article')
+                    with lock, connect(db_path) as con:
+                        if job['state']=='running' or ai_job['state']=='running':
+                            raise ValueError('수집 또는 분석 작업 종료 후 재확인하세요.')
+                        ed=require_draft(con,active['edition'])
+                        row=next((x for x in edition_rows(con,ed['id']) if x['id']==item_id),None)
+                        if row is None or row['source_key']!='medicaltimes':
+                            raise ValueError('현재 초안의 메디칼타임즈 기사만 지원합니다.')
+                    # Network request outside the write lock; verify state again before writing.
+                    metadata=fetch_medicaltimes_detail(row['url'])
+                    with lock, connect(db_path) as con:
+                        if active['edition']!=ed['id'] or job['state']=='running' or ai_job['state']=='running':
+                            raise ValueError('작업 회차 또는 수집 상태가 변경되었습니다. 다시 확인하세요.')
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        result=repair_medicaltimes_metadata(con,ed['id'],item_id,row['content_sha'],metadata,with_groups(con,rules))
+                    self._json({'ok':True,**result})
                     return
                 if p == '/api/edition/select':
                     target=obj.get('edition_id')
