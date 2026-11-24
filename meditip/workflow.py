@@ -35,12 +35,16 @@ def snapshot(con, edition_id, confirmed_at=None, confirmed_by=None):
             'items':rows,'top_output_ids':top_output_ids}
 
 
-def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
+def confirm(con, edition_id, template_path, confirmed_by, issue_number=None, publication_date=None):
     """Transactional one-time confirmation storing both inspectable JSON and immutable HTML."""
     from .render import render, top_output_rows
     ed = require_draft(con, edition_id)
     if not isinstance(confirmed_by, str) or not 1 <= len(confirmed_by.strip()) <= 80:
         raise ValueError('확정 담당자 이름을 입력해.')
+    if publication_date is None:publication_date=ed.get('publication_date')
+    elif publication_date=='':publication_date=None
+    if publication_date is not None and (not isinstance(publication_date,str) or date.fromisoformat(publication_date).isoformat()!=publication_date):
+        raise ValueError('Invalid publication date')
     if issue_number is not None:
         if not isinstance(issue_number,str) or not re.fullmatch(r'[0-9A-Za-z가-힣_-]{1,30}',issue_number):
             raise ValueError('회차 번호는 1~30자의 문자·숫자·-·_만 사용할 수 있어.')
@@ -55,7 +59,7 @@ def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
     when=datetime.now(timezone.utc).isoformat(timespec='seconds')
     try:
         con.execute('BEGIN IMMEDIATE')
-        con.execute('UPDATE editions SET issue_number=? WHERE id=?',(issue_number,edition_id))
+        con.execute('UPDATE editions SET issue_number=?,publication_date=? WHERE id=?',(issue_number,publication_date,edition_id))
         html=render(con,edition_id,template_path,final=True)
         raw=json.dumps(snapshot(con,edition_id,when,confirmed_by.strip()),ensure_ascii=False,sort_keys=True)
         sha=hashlib.sha256(html.encode('utf8')).hexdigest()
