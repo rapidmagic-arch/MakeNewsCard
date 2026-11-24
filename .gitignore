@@ -11,3 +11,8 @@ output/*
 *.db
 *.sqlite3
 *.log
+
+# Local user-managed file copies (may contain confidential records)
+/files/
+/dist/
+/build/
