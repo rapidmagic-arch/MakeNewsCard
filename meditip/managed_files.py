@@ -59,6 +59,14 @@ class ManagedFiles:
         mime,encoded=image.split(',',1)
         extension='.png' if mime=='data:image/png;base64' else '.jpg'
         return self.save('branding/custom/'+role,role,base64.b64decode(encoded,validate=True),extension)
+    def open_folder(self):
+        """Request Explorer explicitly; successful process launch is not window visibility."""
+        if os.name!='nt':raise ValueError('Windows에서만 폴더 열기를 지원합니다.')
+        import subprocess
+        explorer=Path(os.environ.get('SystemRoot',r'C:\Windows'))/'explorer.exe'
+        if not explorer.is_file():raise OSError('Windows Explorer not found')
+        subprocess.Popen([str(explorer),str(self.root)],cwd=str(self.root),
+                         stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     def info(self):
         return {'root':str(self.root),'branding':'branding','imports':'imports','exports':'exports',
                 'can_open':os.name=='nt'}
