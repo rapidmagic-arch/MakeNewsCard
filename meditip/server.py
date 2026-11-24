@@ -134,7 +134,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Security-Policy',
-                             "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
+                             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
             if download:
                 self.send_header('Content-Disposition', f'attachment; filename="{download}"')
             self.end_headers()
