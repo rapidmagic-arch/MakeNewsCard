@@ -141,11 +141,17 @@ function showCollection(j){
  if(j.error)html+='<p class="error" role="alert">'+esc(j.error)+'</p>';
  for(const x of j.results||[]){
   const critical=(x.issues||[]).filter(y=>/error|exception|timeout|denied|forbidden|http\s*\d{3}|no article links parsed|selector needs validation|invalid|failed|refused|connection|not found|blocked/i.test(String(y)));
-  if(x.save_counts)html+='<p>'+esc(sourceLabel[x.source]||x.source)+' · 발견 '+Number(x.records||0)+' · 신규 '+Number(x.save_counts.new||0)+' · 기존 동일 '+Number(x.save_counts.unchanged||0)+' · 변경 '+Number(x.save_counts.changed||0)+'</p>';
-  if(x.official_total!=null)html+='<p>'+esc(sourceLabel[x.source]||x.source)+' · 공식 조회 '+x.official_total+'건 · 등록 '+x.records+'건'+(x.cancelled_only?' · 취소/취하만 해당 '+x.cancelled_only+'건 제외':'')+'</p>';if(x.status==='success'&&!critical.length)continue;
-  if(Number(x.records||0)!==0 && x.status!=='failed' && !critical.length)continue;
-  html+='<div class="collection-problem"><b>'+esc(sourceLabel[x.source]||x.source)+'</b> · '+(x.status==='failed'?'오류':Number(x.records||0)===0?'0건':'확인 필요')+' · '+Number(x.records||0)+'건</div>';
-  if(critical.length)html+='<ul>'+critical.map(y=>'<li>'+esc(String(y).replace(/No article links parsed on page (\d+); selector needs validation/i,'$1페이지: 기사 링크 미확인 · 마지막 페이지인지 구조 변경인지 확인 필요'))+'</li>').join('')+'</ul>';
+  const records=Number(x.records||0),official=x.official_total!=null,failed=x.status==='failed';
+  const warning=failed||critical.length>0||(!official&&records===0&&x.status!=='success');
+  if(!x.save_counts&&!official&&!warning)continue;
+  const stats=[];
+  if(official){stats.push('공식 조회 '+Number(x.official_total)+'건','등록 '+records+'건');}
+  else stats.push('발견 '+records+'건');
+  if(x.save_counts)stats.push('신규 '+Number(x.save_counts.new||0)+'건','기존 동일 '+Number(x.save_counts.unchanged||0)+'건','변경 '+Number(x.save_counts.changed||0)+'건');
+  if(x.cancelled_only)stats.push('취소/취하만 해당 '+Number(x.cancelled_only)+'건 제외');
+  html+='<div class="collection-result-row'+(warning?' has-warning':'')+'"><div class="collection-result-heading"><strong>'+esc(sourceLabel[x.source]||x.source)+'</strong>'+(warning?'<span class="tag '+(failed?'warn':'tag-review')+'">'+(failed?'오류':records===0?'0건 · 확인 필요':'확인 필요')+'</span>':'')+'</div><div class="collection-result-stats">'+stats.map(v=>'<span>'+esc(v)+'</span>').join('')+'</div>';
+  if(critical.length)html+='<ul class="collection-result-issues">'+critical.map(y=>'<li>'+esc(String(y).replace(/No article links parsed on page (\d+); selector needs validation/i,'$1페이지: 기사 링크 미확인 · 마지막 페이지인지 구조 변경인지 확인 필요'))+'</li>').join('')+'</ul>';
+  html+='</div>';
  }
  $('collectionResults').hidden=!html;
  $('collectionResults').innerHTML=html;
