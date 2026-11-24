@@ -21,7 +21,7 @@ def validate_template_id(template_id):
 def render_outlook_cards(con, edition_id, final=False, preview=False):
     """Static Outlook-friendly email; same editorial decisions as classic renderer."""
     from .db import edition_rows, get_edition
-    from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table
+    from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table, top_output_rows
 
     edition = get_edition(con, edition_id)
     rows = edition_rows(con, edition_id)
@@ -87,9 +87,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
         '<p style="font-size:12px;line-height:18px;color:#d5e4ed;margin:8px 0 0">'
         + h(edition['period_start']) + ' ~ ' + h(edition['period_end']) + '</p></td></tr>'
     ]
-    tops = sorted((r for r in rows if r['top_selected']),
-                  key=lambda r: (r['top_rank'] if r['top_rank'] is not None else 9999, r['id']))
-    tops = list(unique_for_display(tops))
+    tops = top_output_rows(rows, edition['top_target'])
     if tops:
         parts.append(section_title('이번 호 주요 뉴스'))
         parts.append('<tr><td style="padding:13px 14px 5px">'
