@@ -66,6 +66,7 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#brandEmail').fill('review@example.org')
         page.locator('#saveBranding').click()
         expect(page.locator('#brandingStatus')).to_contain_text('저장 완료')
+        assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='Browser Test Contact'
         page.locator('[data-view=preview]').click()
         page.locator('#issueNumber').fill('901')
         page.locator('#publicationDate').fill('2026-11-25')
@@ -89,6 +90,7 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#brandContact').fill('Changed Contact')
         page.locator('#saveBranding').click()
         expect(page.locator('#brandingStatus')).to_contain_text('저장 완료')
+        assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='Changed Contact'
         assert requests.get(base+'/export/html',timeout=3).content==frozen
         assert not errors,errors
         browser.close()
