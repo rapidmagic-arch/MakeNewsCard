@@ -27,10 +27,12 @@ def snapshot(con, edition_id, confirmed_at=None, confirmed_by=None):
     rows = edition_rows(con, edition_id)
     if confirmed_at:
         ed.update(status='confirmed',confirmed_at=confirmed_at,confirmed_by=confirmed_by)
+    from .render import top_output_rows
+    top_output_ids=[x['id'] for x in top_output_rows(rows,ed['top_target'])]
     # Include every decision and original metadata available at confirmation time.
     return {'schema_version':'meditip-issue-snapshot-1','edition':ed,
             'week_label':week_label(ed['period_start'], ed['period_end']),
-            'items':rows}
+            'items':rows,'top_output_ids':top_output_ids}
 
 
 def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
