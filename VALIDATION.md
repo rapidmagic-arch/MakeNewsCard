@@ -70,3 +70,8 @@
 - `tests/browser_template_v011.py`: 실제 localhost UI, 모의 공식 데이터 응답, 드롭존, 현재 페이지/카드 선택, 확정 회차 잠금, 샘플 연락처, HD 이미지, 변경된 브랜드 설정 및 확정 HTML 보존.
 - 상단 Git blob SHA `30db07ef86f7f63b471e4b9f85171cabf6c3acd1`, 하단 `70153575f3eec5dc73261ecd89be0dc5bed40171`; 원본 크롭 이미지와 일치 확인.
 - UI CSS 참고: IBM Carbon Design System Forms, Checkbox, File uploader; 로컬 CSS로 구현. 실사용 Windows 네트워크 및 Outlook 데이터 URI 호환성은 별도 검증 대상.
+
+## v0.13 source quality verification
+- MedicalTimes observed public markup: article.newsList_cont, .headLine, .newsList_cont_date, detail .viewTitle_wrap #NewsTitle and .date_info span with 발행날짜 label. Example article ID 1172075, publication date 2026-11-23; this date is outside the 2026-11-16~22 edition period.
+- Tests model observed DOM with synthetic body content; verify missing fields, noisy legacy metadata, duplicate sidebars, explicit dates, version retention, stale AI proposal invalidation, human decisions and frozen HTML/snapshot preservation. Browser integration uses a mocked article metadata response, not live access from Windows.
+- Footer table rows and image position are tested in Chromium; actual Outlook rendering remains unverified.
