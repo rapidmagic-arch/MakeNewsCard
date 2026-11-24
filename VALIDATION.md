@@ -89,3 +89,8 @@
 - ManagedFiles validates directory containment, normalizes names and uses content-derived versions with atomic writes. Exact bytes of imported CSV and JSON are kept, legacy brand images are copied from the DB, and explicit exports are mirrored to persistent files without changing the browser download flow.
 - Unit tests cover path escape rejection, filename collisions, repeat content and version retention. HTTP/browser tests cover original import bytes, duplicate export behavior, actual folder path and confirmed HTML. Windows package smoke checks folders and an actual HTML export under external --data-dir, not the temporary executable extraction folder.
 - DB remains the authoritative editorial/brand state. Files are retained copies; historical imports that were never stored cannot be reconstructed. A failed import can leave its input file in the archive. No automatic cleanup or migration of arbitrary old files.
+
+## v0.14 operator polish
+- Resolve rank row flex/grid conflict and normalize spacing, buttons, status chip and file drop geometry. Browser test checks actual computed styles, rather than only presence of DOM nodes.
+- Default contacts are independently persisted in newsletter_branding, with regression coverage for unchanged active publishing settings and reopen. Explorer uses explicit executable; actual visible Explorer window in end user's desktop session is not verified by headless CI. Copy path fallback provided.
+- Edition creation client-side input validation and inline response message; screenshot alone does not identify the specific historical HTTP 400 cause. Preview sandbox is intentionally retained; browser console's blocked-script message does not establish a functional defect.
