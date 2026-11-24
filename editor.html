@@ -346,11 +346,9 @@ function render(){
  $('queueTotal').textContent='현재 조건 '+view.length+'건';
  $('prevItems').disabled=pageIndex===0;$('nextItems').disabled=pageIndex>=pages-1;
  $('items').innerHTML=currentPageRows.map(x=>{
-   const proposal=x.source_group==='industry'?candidateSection(x):x.section;
+   const proposal=x.source_group==='industry'?proposedSection(x):x.section;
    const actual=x.section_override||x.section;
    const proposalLabel=sectionLabel[proposal]||proposal;
-   const suggestion=hasAi(x)?'GPT 제안':x.source_group==='industry'&&x.rule_recommended?'규칙 후보':x.source_group==='mfds'?'기관 원본':'추가 검토';
-   const scopeLabel=x.include_detail?'수록 중':'미수록';
    const summary=x.summary_source||'';
    return '<article class="queue-row'+(detailItemId===x.id?' active':'')+'" data-id="'+esc(x.id)+'">'+
     '<label class="queue-select" title="일괄 작업에 포함"><input type="checkbox" data-queue-check="1" '+(selectedIds.has(x.id)?'checked':'')+(x.source_group!=='industry'?' disabled':'')+' aria-label="기사 선택"></label>'+
@@ -364,7 +362,8 @@ function render(){
  $('selectVisible').disabled=db.edition.status==='confirmed'||!currentPageRows.some(x=>x.source_group==='industry');
  $('selectedCount').textContent='선택 '+selectedIds.size+'건';
  const locked=db.edition.status==='confirmed';
- for(const id of ['runAi','importAi','bulkIncludeSelected','bulkExcludeSelected','saveTarget'])$(id).disabled=locked;
+ for(const id of ['importAi','bulkIncludeSelected','bulkExcludeSelected','saveTarget'])$(id).disabled=locked;
+ $('runAi').disabled=locked||!aiReady||lastAi==='running';
  $('target').disabled=locked;
  $('bulkIncludeSelected').disabled=locked||!selectedIds.size;
  $('bulkExcludeSelected').disabled=locked||!selectedIds.size;
