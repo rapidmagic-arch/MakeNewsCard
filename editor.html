@@ -80,7 +80,7 @@
       <input type="search" id="search" placeholder="제목 · 출처 · 키워드 검색" aria-label="기사 검색">
       <label for="group">출처 <select id="group"><option value="all">전체 출처</option><option value="industry">언론기사</option><option value="mfds">식약처</option><option value="company">회사 소식</option><option value="clinical">임상시험 승인</option><option value="treatment">치료목적 사용승인</option><option value="drug">의약품 허가</option></select></label>
       <label for="industrySection">추천 분야 <select id="industrySection"><option value="all">전체 분야</option><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구개발</option><option value="industry.unclassified">미분류</option></select></label><label for="actualSection">발행 분야 <select id="actualSection"><option value="all">전체 분야</option><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구개발</option><option value="industry.unclassified">미분류</option></select></label>
-       <label for="reviewGroup">추천 그룹 <select id="reviewGroup"><option value="all">전체 그룹</option></select></label>
+       <label for="reviewGroup">추천 그룹 <select id="reviewGroup"><option value="all">전체 그룹</option></select></label><label for="qualityFilter">데이터 확인 <select id="qualityFilter"><option value="all">전체 상태</option><option value="medicaltimes">메디칼타임즈 확인 필요</option><option value="title">제목 확인</option><option value="date">날짜 미확인</option><option value="period">기간 밖</option><option value="proposal">추천 미분류</option><option value="publication">발행 미분류</option></select></label>
     </div>
     <div class="selection-bar">
       <label><input id="selectVisible" type="checkbox"> 현재 페이지 선택</label>
@@ -300,10 +300,13 @@ $('newEdition').addEventListener('click',async()=>{
  catch(err){$('collectionState').textContent='회차 오류: '+err.message}
 });
 function sourceDisplay(x){if(x.source_group==='company'){try{return JSON.parse(x.original_metadata||'{}').publisher||sourceLabel[x.source_key]||x.source_key}catch(e){}}return sourceLabel[x.source_key]||x.source_key}
-function proposedSection(x){return x.ai_section||x.rule_section||x.section}
+function titleNeedsReview(x){return x.verification==='needs_title_review'||!String(x.title||'').trim()||(x.title||'').length>190||(x.source_key==='medicaltimes'&&/\[\s*메디칼타임즈\s*=|\[제목 확인 필요\]|20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(x.title||''))}
+function proposedSection(x){return x.source_group==='industry'&&titleNeedsReview(x)?'industry.unclassified':x.ai_section||x.rule_section||x.section}
+function qualityMatch(x,key){if(key==='all')return true;if(key==='title')return titleNeedsReview(x);if(key==='date')return !x.published_at;if(key==='period')return Boolean(x.published_at&&(x.published_at<db.edition.period_start||x.published_at>db.edition.period_end));if(key==='proposal')return x.source_group==='industry'&&proposedSection(x)==='industry.unclassified';if(key==='publication')return x.source_group==='industry'&&(x.section_override||x.section)==='industry.unclassified';if(key==='medicaltimes')return x.source_key==='medicaltimes'&&['title','date','period','proposal','publication'].some(k=>qualityMatch(x,k));return false}
+function safeOriginalLink(x){return /^https?:\/\//i.test(x.url||'')?'<a class="button original-link" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">원문 확인 ↗</a>':''}
 function candidateSection(x){return x.section_override||proposedSection(x)}
 function hasAi(x){return x.ai_score!==null||x.ai_reason!==null||x.ai_section!==null||Boolean(x.ai_summary)}
-function isSuggested(x){if(x.verification==='needs_title_review'||(x.title||'').length>190)return false;return hasAi(x)?Boolean(x.ai_recommended):Boolean(x.rule_recommended)}
+function isSuggested(x){if(titleNeedsReview(x))return false;return hasAi(x)?Boolean(x.ai_recommended):Boolean(x.rule_recommended)}
 function industryRows(){return db.items.filter(x=>x.source_group==='industry')}
 function groupLabel(id){return reviewGroups.find(g=>g.id===id)?.label||'그룹 미지정'}
 function scopeIndustry(){const s=$('industrySection').value;return industryRows().filter(x=>s==='all'||candidateSection(x)===s)}
@@ -327,7 +330,7 @@ function renderCardGallery(view){
  $('cardStatus').textContent=view.length?(cardIndex+1)+' / '+view.length:'0 / 0';
  if(!x){$('featuredArticle').innerHTML='<p class="empty-results">추천 기사 또는 현재 조건에 맞는 후보가 없어.</p>';return}
  const safeLink=/^https:\/\//i.test(x.url||'')?x.url:null;
- const flag=x.verification==='needs_title_review'||(x.title||'').length>190;
+ const flag=titleNeedsReview(x);
  const info=flag?' · 제목 확인 필요':(!x.published_at?' · 날짜 확인 필요':'');
  $('featuredArticle').innerHTML='<article class="candidate-card" data-id="'+esc(x.id)+'">'+
   '<div class="candidate-card-top"><span class="pill">'+esc(sourceDisplay(x))+'</span><span class="card-status-tags">'+articleTags(x)+'</span></div>'+
@@ -362,7 +365,7 @@ function render(){
  if(!db)return;
  renderCompany();
  const locked=db.edition.status==='confirmed';if(locked)selectedIds.clear();
- const all=db.items, top=ordered(), q=$('search').value.trim().toLowerCase(),g=$('group').value,sf=$('industrySection').value,af=$('actualSection').value,rg=$('reviewGroup').value;
+ const all=db.items, top=ordered(), q=$('search').value.trim().toLowerCase(),g=$('group').value,sf=$('industrySection').value,af=$('actualSection').value,rg=$('reviewGroup').value,quality=$('qualityFilter').value;
  for(const id of [...selectedIds])if(!all.some(x=>x.id===id&&x.source_group==='industry'))selectedIds.delete(id);
  $('stats').innerHTML='<div class="stat"><b>'+all.length+'</b><small>전체 자료</small></div><div class="stat"><b>'+all.filter(x=>x.include_detail).length+'</b><small>수록 자료</small></div><div class="stat"><b>'+top.length+'</b><small>TOP 후보</small></div>';
  $('collectionSummary').textContent='식약처 연결 자료 '+all.filter(x=>x.source_group==='mfds').length+'건 · 수집 기록 '+(db.run_total??db.runs.length)+'회';
@@ -379,7 +382,9 @@ function render(){
    const key=button.dataset.queue;button.setAttribute('aria-selected',String(queueKind===key));
    button.textContent={recommended:'추천 후보',review:'추가 검토',other:'기타 언론기사',institutional:'기관·기타 자료',included:'수록 목록',all:'전체'}[key]+' '+counts[key];
  }
- const view=all.filter(x=>queueMatch(x)&&(g==='all'||x.source_group===g)
+ const labels={medicaltimes:'메디칼타임즈 확인 필요',title:'제목 확인',date:'날짜 미확인',period:'기간 밖',proposal:'추천 미분류',publication:'발행 미분류'};
+ for(const opt of $('qualityFilter').options)if(labels[opt.value])opt.textContent=labels[opt.value]+' '+all.filter(x=>qualityMatch(x,opt.value)).length+'건';
+ const view=all.filter(x=>queueMatch(x)&&qualityMatch(x,quality)&&(g==='all'||x.source_group===g)
    &&(sf==='all'||(x.source_group==='industry'&&proposedSection(x)===sf))
     &&(af==='all'||(x.source_group==='industry'&&(x.section_override||x.section)===af))
     &&(rg==='all'||(x.source_group==='industry'&&x.rule_group_id===rg))
@@ -398,7 +403,7 @@ function render(){
    return '<article class="queue-row'+(detailItemId===x.id?' active':'')+'" data-id="'+esc(x.id)+'">'+
     '<label class="queue-select" title="'+(locked?'확정 회차 · 읽기 전용':x.source_group!=='industry'?'일괄 편집은 언론기사만 지원':'일괄 작업에 포함')+'"><input type="checkbox" data-queue-check="1" '+(selectedIds.has(x.id)?'checked':'')+(locked||x.source_group!=='industry'?' disabled':'')+' aria-label="기사 선택"></label>'+
     '<button class="queue-open" data-open-id="'+esc(x.id)+'" type="button" title="'+esc(x.title)+'"><strong class="queue-headline">'+esc(x.title)+'</strong><small>'+esc(x.published_at||'날짜 확인 필요')+' · '+esc(sourceDisplay(x))+' · 제안 '+esc(proposalLabel)+' / 발행 '+esc(sectionLabel[actual]||actual)+'</small><span class="queue-reason">'+esc(((hasAi(x)?x.ai_reason:x.rule_reason)||'').slice(0,150))+'</span></button>'+
-    '<div class="queue-chips">'+articleTags(x)+((x.verification==='needs_title_review'||x.title.length>190)?'<span class="tag warn">제목 확인</span>':'')+'</div></article>'
+    '<div class="queue-chips">'+articleTags(x)+(titleNeedsReview(x)?'<span class="tag warn">제목 확인</span>':'')+(qualityMatch(x,'period')?'<span class="tag warn">기간 밖</span>':'')+'</div></article>'
  }).join('')||'<p class="empty-results">조건에 맞는 기사가 없어. 다른 탭이나 전체 목록을 확인해.</p>';
  renderCardGallery(view);
  const pageSelectable=currentPageRows.filter(x=>x.source_group==='industry');
@@ -433,17 +438,18 @@ function renderDetail(){
  const proposed=proposedSection(x),actual=x.section_override||x.section;
  const attrs=sectionSelectOptions(x).map(key=>'<option value="'+esc(key)+'" '+(key===actual?'selected':'')+'>'+esc(sectionLabel[key]||key)+'</option>').join('');
  const suggestedSummary=hasAi(x)?x.ai_summary||'':null;
- target.innerHTML='<div class="detail-content"><div class="detail-title"><h3>3. 기사 상세 편집</h3><button id="closeDetail" type="button" aria-label="상세 편집 닫기">닫기</button></div>'+
+ target.innerHTML='<div class="detail-content"><div class="detail-title"><h3>3. 기사 상세 편집</h3><div class="detail-title-actions">'+safeOriginalLink(x)+'<button id="closeDetail" type="button" aria-label="상세 편집 닫기">닫기</button></div></div>'+
   '<div class="detail-form"><h4>최종 편집·발행 내용</h4>'+(confirmed?'<p class="readonly-note">확정된 회차 · 읽기 전용</p>':x.mandatory?'<p class="readonly-note">필수 수록 자료 · 본문 제외 불가</p>':'')+'<label class="checkline"><input id="detailInclude" type="checkbox" '+(x.include_detail?'checked':'')+(x.mandatory||confirmed?' disabled':'')+'> 본문에 수록</label><label class="checkline"><input id="detailTop" type="checkbox" '+(x.top_selected?'checked ':'')+locked+'> TOP 후보</label>'+(x.source_group==='industry'?'<label class="checkline"><input id="detailCompany" type="checkbox" '+(x.company_selected?'checked ':'')+locked+'> 메디팁 주요 소식</label>':'')+
   '<label class="field" for="detailSection">발행 분야</label><select id="detailSection" '+locked+'>'+attrs+'</select>'+
   '<label class="field" for="detailTitle">발행 제목</label><input id="detailTitle" '+locked+' value="'+esc(x.title_override??x.title)+'" maxlength="2000">'+
   '<label class="field" for="detailSummary">발행 요약</label><textarea id="detailSummary" '+locked+' maxlength="2000">'+esc(x.summary_override??x.summary_source??'')+'</textarea>'+
-  '<div id="detailSummaryLength" class="small-label"></div><div class="actions">'+(suggestedSummary&&!confirmed?'<button id="applyAiSummary">GPT 요약을 편집란으로 복사</button>':'')+'<button id="saveDetailText" class="primary" '+locked+'>저장</button></div><p class="muted" id="detailStatus"></p></div>'+ '<div class="proposal-box"><p class="small-label">분석 제안 (승인 전)</p><p><strong>추천 그룹:</strong> '+esc(groupLabel(x.rule_group_id))+' · <strong>발행 분야:</strong> '+esc(sectionLabel[proposed]||proposed)+' · <strong>수록 추천:</strong> '+(isSuggested(x)?'추천':'미추천')+'</p><p>'+esc(hasAi(x)?x.ai_reason||'':x.rule_reason||'규칙 추천 없음')+'</p>'+(suggestedSummary?'<p><strong>요약 제안:</strong> '+esc(suggestedSummary)+'</p>':'')+'</div>' + '<section class="original-article">'+ '<p class="small-label">원본 기사</p>'+(x.verification==='needs_title_review'?'<p class="notice">제목 추출 확인 필요 · 원문 링크에서 정확한 제목을 확인해.</p>':'')+'<p class="source-title">'+esc(x.title)+'</p><p class="muted">'+esc(x.published_at||'날짜 미확인')+' · '+esc(sourceDisplay(x))+'</p><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">원문 확인</a>' + '</section></div>';
+  '<div id="detailSummaryLength" class="small-label"></div><div class="actions">'+(suggestedSummary&&!confirmed?'<button id="applyAiSummary">GPT 요약을 편집란으로 복사</button>':'')+'<button id="saveDetailText" class="primary" '+locked+'>저장</button></div><p class="muted" id="detailStatus"></p></div>'+ '<div class="proposal-box"><p class="small-label">분석 제안 (승인 전)</p><p><strong>추천 그룹:</strong> '+esc(groupLabel(x.rule_group_id))+' · <strong>발행 분야:</strong> '+esc(sectionLabel[proposed]||proposed)+' · <strong>수록 추천:</strong> '+(isSuggested(x)?'추천':'미추천')+'</p><p>'+esc(hasAi(x)?x.ai_reason||'':x.rule_reason||'규칙 추천 없음')+'</p>'+(suggestedSummary?'<p><strong>요약 제안:</strong> '+esc(suggestedSummary)+'</p>':'')+'</div>' + '<section class="original-article">'+ '<div class="original-heading"><h4>원본 기사</h4>'+safeOriginalLink(x)+'</div>'+(titleNeedsReview(x)?'<p class="notice">제목 추출 확인 필요</p>':'')+(qualityMatch(x,'period')?'<p class="notice">발행일이 회차 수집 기간 밖입니다.</p>':'')+'<p class="source-title">'+esc(x.title)+'</p><p class="muted">'+esc(x.published_at||'날짜 미확인')+' · '+esc(sourceDisplay(x))+'</p>'+(!confirmed&&x.source_key==='medicaltimes'?'<button id="recheckMetadata" type="button">원문 제목·발행일 재확인</button><p id="recheckStatus" class="status" role="status"></p>':'') + '</section></div>';
  if(draft){$('detailTitle').value=draft.title;$('detailSummary').value=draft.summary;}
  $('detailTitle').addEventListener('input',()=>{detailDirty=true});
  const counter=()=>{const n=$('detailSummary').value.length;$('detailSummaryLength').textContent=n+'/220자'+(n>220?' (권장 초과)':'')};counter();$('detailSummary').addEventListener('input',()=>{detailDirty=true;counter()});
  $('closeDetail').addEventListener('click',()=>{if(detailDirty&&!confirm('저장하지 않은 편집 내용을 닫을까?'))return;const oldId=detailItemId;detailDirty=false;detailItemId=null;render();[...document.querySelectorAll('[data-open-id]')].find(el=>el.dataset.openId===oldId)?.focus()});
  if(confirmed)return;
+ if($('recheckMetadata'))$('recheckMetadata').addEventListener('click',async()=>{const button=$('recheckMetadata');button.disabled=true;$('recheckStatus').textContent='원문 확인 중';try{const result=await api('/api/article/recheck',{item_id:x.id});await load();if(detailItemId===x.id&&$('recheckStatus'))$('recheckStatus').textContent=(result.changed?'원본 메타데이터 갱신 · 기존 발행 편집값 유지 · GPT 제안 재분석 필요':'원문 메타데이터 확인 완료')+(result.out_of_period?' · 수집 기간 밖':'')}catch(e){if(detailItemId===x.id&&$('recheckStatus'))$('recheckStatus').textContent=e.message}finally{if(detailItemId===x.id&&$('recheckMetadata'))$('recheckMetadata').disabled=false}});
  if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;detailDirty=true;counter();$('detailStatus').textContent='GPT 요약을 복사했어. 확인 후 저장을 눌러야 반영돼.'});
  $('detailInclude').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{include_detail:e.target.checked}})));
  if($('detailCompany'))$('detailCompany').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{company_selected:e.target.checked}})));
@@ -484,7 +490,7 @@ document.addEventListener('keydown',e=>{
 $('queueTabs').addEventListener('click',e=>{const btn=e.target.closest('[data-queue]');if(!btn)return;queueKind=btn.dataset.queue;selectedIds.clear();pageIndex=0;cardIndex=0;render()});
 $('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move],[data-remove-top]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id);if(i<0)return;if(btn.hasAttribute('data-remove-top')){ids.splice(i,1);act(()=>api('/api/top-order',{ids}));return;}const j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
 $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Number($('target').value)})));
-[['search','input'],['group','change'],['industrySection','change'],['actualSection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{selectedIds.clear();pageIndex=0;cardIndex=0;render()}));
+[['search','input'],['group','change'],['industrySection','change'],['actualSection','change'],['reviewGroup','change'],['qualityFilter','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{selectedIds.clear();pageIndex=0;cardIndex=0;render()}));
 $('prevItems').addEventListener('click',()=>{selectedIds.clear();pageIndex=Math.max(0,pageIndex-1);render()});
 $('nextItems').addEventListener('click',()=>{selectedIds.clear();pageIndex++;render()});
 $('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').files[0];if(!file||fileError($('aiJsonFile'),file)){$('industryFeedback').textContent='GPT 분석 결과 JSON을 먼저 선택해.';return}
