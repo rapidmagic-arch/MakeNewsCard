@@ -185,6 +185,15 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
                 row['ai_summary']=None
     tops=top_output_rows(rows, edition['top_target'])
     soup=BeautifulSoup(Path(template_path).read_text(encoding='utf-8'),'html.parser')
+    banner_slot=soup.select_one('[data-image-slot="banner"]')
+    banner_path=Path(template_path).resolve().parent.parent/'assets'/'newsletter'/'meditip-mvp-banner.jpg'
+    if banner_slot is not None and banner_path.is_file():
+        from base64 import b64encode
+        img=soup.new_tag('img',src='data:image/jpeg;base64,'+b64encode(banner_path.read_bytes()).decode('ascii'),
+                         alt='MEDiTIP 뉴스레터 MVP 이미지',width='800')
+        img['style']='display:block;width:100%;max-width:800px;height:auto;border:0'
+        banner_slot.clear()
+        banner_slot.append(img)
     first=soup.select_one('#i8voq4');second=soup.select_one('#icsna')
     if not first or not second:raise ValueError('Original 892 TOP layout markers not found')
     first.replace_with(BeautifulSoup(top_table(tops),'html.parser'))
