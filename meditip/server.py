@@ -25,6 +25,7 @@ from .mail_templates import TEMPLATES, validate_template_id
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
 from .app_config import load_project_env
+from .ui_assets import read_editor
 from .library import library_page, archived_html
 from .review_groups import init_groups, list_groups, save_group, delete_group, with_groups
 
@@ -43,7 +44,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
     load_project_env(root)
-    editor = Path(editor_path).read_text(encoding='utf8')
+    editor = read_editor(editor_path)
+    editor_js = (root/'assets'/'editor.js').read_text(encoding='utf8')
     editor_css = (root/'assets'/'editor.css').read_text(encoding='utf8')
     sources_path = Path(sources_path or root/'config'/'sources.yaml')
     editorial_path = Path(editorial_path or root/'config'/'editorial.yaml')
@@ -203,6 +205,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 if p == '/assets/editor.css':
                     self._respond(200,editor_css,'text/css; charset=utf-8')
+                    return
+                if p == '/assets/editor.js':
+                    self._respond(200,editor_js,'application/javascript; charset=utf-8')
                     return
                 if p == '/api/edition':
                     with connect(db_path) as con:
