@@ -84,6 +84,9 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#saveCompany').click()
         expect(page.locator('#companyStatus')).to_have_text('등록 완료')
         expect(page.locator('#companyList .rankrow')).to_have_count(2)
+        assert page.locator('#companyList .rankrow').first.evaluate('el=>getComputedStyle(el).display')=='grid'
+        assert page.locator('#companyList .rankrow>.tag').first.evaluate('el=>el.getBoundingClientRect().width')<100
+        assert page.locator('#companyList [data-company-move]').first.evaluate('el=>el.getBoundingClientRect().width')==32
         first_id=page.locator('#companyList [data-company-open]').first.get_attribute('data-company-open')
         page.locator('#companyList [data-company-move="1"]').first.click()
         expect(page.locator('[data-queue=company]')).to_have_attribute('aria-selected','true')
@@ -133,6 +136,15 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(page.locator('#brandContact')).to_have_value('최서영')
         expect(page.locator('#managedFilesPath')).to_have_text(str(Path(tmp)/'files'))
         expect(page.locator('#brandEmail')).to_have_value('sychoi@meditip.co.kr')
+        assert page.locator('.brand-assets .file-drop').evaluate_all('els=>new Set(els.map(e=>e.getBoundingClientRect().height)).size')==1
+        expect(page.locator('#copyManagedPath')).to_be_enabled()
+        page.locator('#brandContact').fill('Next default')
+        page.locator('#saveDefaultContact').click()
+        expect(page.locator('#brandingStatus')).to_contain_text('기본 연락처 저장 완료')
+        assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='최서영'
+        page.locator('#brandContact').fill('Temporary')
+        page.locator('#restoreSampleContact').click()
+        expect(page.locator('#brandContact')).to_have_value('Next default')
         assert page.locator('#brandPhone').evaluate('el=>el.getBoundingClientRect().height')>=40
         assert page.locator('#resetLogo').evaluate('el=>el.getBoundingClientRect().width')==18
         page.screenshot(path=str(ROOT/'output'/'v012_branding_desktop.png'),full_page=True)
@@ -208,6 +220,14 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(mobile.locator('#brandContact')).to_have_value('Changed Contact')
         assert mobile.evaluate('document.body.scrollWidth<=window.innerWidth+3')
         mobile.screenshot(path=str(ROOT/'output'/'v012_branding_mobile.png'),full_page=True)
+        page.locator('[data-view=collect]').click()
+        page.locator('#newEditionId').fill('한글회차')
+        page.locator('#newEdition').click()
+        expect(page.locator('#editionSetupStatus')).to_contain_text('회차 ID는 영문')
+        page.locator('#newEditionId').fill('new-draft')
+        page.locator('#newEdition').click()
+        expect(page.locator('#editionSetupStatus')).to_contain_text('회차 전환 완료')
+        assert requests.get(base+'/api/edition',timeout=3).json()['edition']['id']=='new-draft'
         assert not errors,errors
         browser.close()
 print('v0.11 localhost browser: company, TOP, CSV, branding, publication and frozen HTML PASS')
