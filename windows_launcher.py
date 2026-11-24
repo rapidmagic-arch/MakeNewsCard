@@ -50,7 +50,7 @@ def main():
     print('Local data:',db,flush=True)
     if not args.no_browser:
         threading.Thread(target=launch_browser,args=(args.port,),daemon=True).start()
-    serve(db,ROOT/'templates'/'892_slots_original.html',ROOT/'editor.html',eid,args.port)
+    serve(db,ROOT/'templates'/'892_slots_original.html',ROOT/'editor.html',eid,args.port,workspace=home)
 
 if __name__=='__main__':
     main()
