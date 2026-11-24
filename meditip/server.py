@@ -16,6 +16,7 @@ import yaml
 
 from .collect import collect_source, source_specs, import_approval_bytes
 from .company import register_company, set_company_order
+from .branding import public_branding, save_branding
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
@@ -213,11 +214,12 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         ed=get_edition(con,active['edition'])
                         groups=list_groups(con)
+                        branding=public_branding(con)
                     editorial=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
-                                'review_groups':groups,
+                                'review_groups':groups,'branding':branding,
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
                     return
@@ -289,7 +291,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 p = urlsplit(self.path).path
-                max_payload = 4_000_000 if p == '/api/approval/import' else (1_000_000 if p == '/api/ai/import' else 100_000)
+                max_payload = 4_000_000 if p in ('/api/approval/import','/api/branding/save') else (1_000_000 if p == '/api/ai/import' else 100_000)
                 if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
@@ -412,6 +414,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with lock, connect(db_path) as con:
+                    if p == '/api/branding/save':
+                        self._json({'ok':True,'branding':save_branding(con,obj)})
+                        return
                     if p == '/api/company/register':
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                         iid=register_company(con,active['edition'],obj,with_groups(con,rules))
