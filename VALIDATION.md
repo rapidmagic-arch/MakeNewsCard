@@ -75,3 +75,8 @@
 - MedicalTimes observed public markup: article.newsList_cont, .headLine, .newsList_cont_date, detail .viewTitle_wrap #NewsTitle and .date_info span with 발행날짜 label. Example article ID 1172075, publication date 2026-11-23; this date is outside the 2026-11-16~22 edition period.
 - Tests model observed DOM with synthetic body content; verify missing fields, noisy legacy metadata, duplicate sidebars, explicit dates, version retention, stale AI proposal invalidation, human decisions and frozen HTML/snapshot preservation. Browser integration uses a mocked article metadata response, not live access from Windows.
 - Footer table rows and image position are tested in Chromium; actual Outlook rendering remains unverified.
+
+## v0.14 maintenance and Windows packaging
+- Editor markup and JavaScript separated: `editor.html`, `assets/editor.js`, `assets/editor.css`; no frontend build or package manager required. Existing browser fixtures compose the same source with `meditip/ui_assets.py`; HTTP integration uses the actual static asset route. Token remains in HTML only.
+- Browser integration checks company ordering synchronizes with queue, site preferences survive reload without retaining media-rights acknowledgement, all approval types execute independently (mocked partial failure and CSV conflict), and stable template IDs.
+- Windows package workflow builds a one-file x64 executable using PyInstaller, then launches with Python removed from PATH and a synthetic external .env. Smoke checks startup, editor assets, local data creation, preview, and no secret in settings response. Artifact contains executable, example env, and manual, not the real database or API key. Actual target PC security policy, live API calls and Outlook are not covered.
