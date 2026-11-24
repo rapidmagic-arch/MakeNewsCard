@@ -298,6 +298,9 @@ def import_approval_bytes(con,content,kind='clinical',edition=None):
             skipped.append({'line':line,'reason':'required approval date or title missing'});continue
         if edition and not edition['period_start']<=approved<=edition['period_end']:
             skipped.append({'line':line,'reason':'outside edition period'});continue
+        if con.execute("SELECT 1 FROM items WHERE source_key=? AND published_at=? LIMIT 1",
+                       ('official_live_'+kind,approved)).fetchone():
+            raise ValueError('같은 날짜에 공식 자동 수집 자료가 있습니다. CSV와 자동 자료를 혼합하지 않습니다.')
         event=field('승인번호','접수번호','허가번호') or hashlib.sha256(json.dumps(src,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:20]
         source_key=f'official_csv_{kind}'
         item={'source_key':source_key,'source_group':kind,
