@@ -56,7 +56,7 @@ jobs:
       - name: Build standalone executable
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --console --name MakeNewsCard --add-data "editor.html:." --add-data "assets:assets" --add-data "config:config" --add-data "templates:templates" windows_launcher.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --hidden-import pystray._win32 --name MakeNewsCard --add-data "editor.html:." --add-data "assets:assets" --add-data "config:config" --add-data "templates:templates" windows_launcher.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify packaged application and external environment
         shell: pwsh
@@ -69,7 +69,7 @@ jobs:
           $oldKey = $env:OPENAI_API_KEY
           Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
           $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
-          $proc = Start-Process -FilePath $exe -ArgumentList "--data-dir `"$homeDir`" --port 18765 --no-browser" -PassThru
+          $proc = Start-Process -FilePath $exe -ArgumentList "--data-dir `"$homeDir`" --port 18765 --no-browser --no-tray" -PassThru
           try {
             $base = 'http://127.0.0.1:18765'
             $ready = $false
@@ -94,9 +94,17 @@ jobs:
             $saved = Invoke-WebRequest "$base/export/html"
             $exports = @(Get-ChildItem (Join-Path $homeDir 'files/exports') -Recurse -Filter '*.html')
             if ($exports.Count -ne 1) { throw 'Managed HTML export missing' }
-            Write-Host 'PACKAGED WINDOWS SMOKE PASS'
+            $token = [regex]::Match($html.Content,'name="local-token" content="([^"]+)"').Groups[1].Value
+            if (!$token) { throw 'Local token missing' }
+            $exitResult = Invoke-RestMethod "$base/api/app/shutdown" -Method Post -Headers @{'X-Local-Token'=$token} -ContentType 'application/json' -Body '{}'
+            if (!$exitResult.ok) { throw 'Graceful exit rejected' }
+            if (!$proc.WaitForExit(20000)) { throw 'Packaged process did not exit' }
+            if ($proc.ExitCode -ne 0) { throw 'Unexpected packaged exit code' }
+            $listener = Get-NetTCPConnection -LocalPort 18765 -State Listen -ErrorAction SilentlyContinue
+            if ($listener) { throw 'Server port remained listening' }
+            Write-Host 'PACKAGED WINDOWS SMOKE PASS / GRACEFUL SHUTDOWN PASS'
           } finally {
-            & "$env:SystemRoot\System32\taskkill.exe" /PID $proc.Id /T /F 2>$null
+            if (!$proc.HasExited) { & "$env:SystemRoot\System32\taskkill.exe" /PID $proc.Id /T /F 2>$null }
             $env:Path = $oldPath
             if ($null -ne $oldKey) { $env:OPENAI_API_KEY = $oldKey }
           }
