@@ -377,3 +377,12 @@ body{background:var(--ui-bg);color:var(--ui-ink)}
 .app-main .brand-assets .field-block .checkline{min-height:24px}
 @media(max-width:920px){.app-main .brand-assets{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls>button{justify-self:start}}
 @media(max-width:600px){.app-main .brand-fields,.app-main .brand-assets,.app-main .form-row,.app-main .form-grid,.app-main .approval-controls{grid-template-columns:1fr}.app-main .form-row>label{min-width:0}.app-main .approval-controls>button{width:100%}.app-main .queue-filters label{min-width:0}.app-main .compact-drop{max-width:100%;flex-basis:100%}.app-main .file-drop{min-height:84px}}
+
+/* Source quality and article links */
+.app-main .detail-title{flex-wrap:wrap;align-items:center}
+.app-main .detail-title-actions,.app-main .original-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.app-main .detail-title-actions{justify-content:flex-end;margin-left:auto}
+.app-main .original-heading h4{font-size:14px;line-height:1.4;margin:0;color:var(--ui-ink)}
+.app-main a.original-link{min-height:32px;padding:6px 9px;font-size:12px;white-space:nowrap;color:var(--ui-primary);border-color:#b7cde0;background:#f5f9fd}
+.app-main #qualityFilter{max-width:220px}
+.app-main .original-article #recheckMetadata{margin-top:8px;min-height:34px;font-size:12px}
