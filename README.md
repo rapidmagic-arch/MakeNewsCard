@@ -2,7 +2,7 @@
 
 ## 사용자 실행 — Windows x64 EXE
 
-GitHub Actions의 성공한 `windows-package` 작업에서 `MakeNewsCard-Windows-x64` 산출물을 다운로드한다. 압축을 풀고 쓰기 가능한 폴더의 `MakeNewsCard.exe`를 실행하면 기본 브라우저에서 로컬 편집기가 열린다. Python, pip, Git 설치는 필요하지 않다. `.env.example`을 같은 위치에 `.env`로 복사하고 필요한 경우 `OPENAI_API_KEY`와 `OPENAI_MODEL`을 지정한다. 기존 시스템 환경변수가 우선한다. API 키가 없으면 수동 JSON 분석을 사용한다. 기존 DB 사용 시 프로그램을 종료한 뒤 `data/newsletter.db`와 필요한 `.env`를 동일 위치에 둔다. 별도 데이터 폴더는 `--data-dir`로 지정할 수 있다. 같은 작업 루트에 `files/branding`, `files/imports`, `files/exports`가 자동 생성된다. 사용자 등록 원본과 내보낸 파일은 여기에서 관리한다. 업그레이드 시 `data/`, `files/`, `.env`를 유지한다. 실행 파일은 코드 서명되지 않았으며 외부 배포 전 조직 보안 정책을 확인한다.
+GitHub Actions의 성공한 `windows-package` 작업에서 `MakeNewsCard-Windows-x64` 산출물을 다운로드한다. 압축을 풀고 쓰기 가능한 폴더의 `MakeNewsCard.exe`를 실행하면 Windows 알림 영역에 트레이 아이콘이 표시되고 기본 브라우저에서 로컬 편집기가 열린다. 브라우저를 닫아도 서버는 유지되며 트레이 메뉴의 프로그램 종료로 서버와 EXE를 함께 종료한다. 진행 중인 수집·분석·저장 요청은 종료 전에 완료해야 한다. Python, pip, Git 설치는 필요하지 않다. `.env.example`을 같은 위치에 `.env`로 복사하고 필요한 경우 `OPENAI_API_KEY`와 `OPENAI_MODEL`을 지정한다. 기존 시스템 환경변수가 우선한다. API 키가 없으면 수동 JSON 분석을 사용한다. 기존 DB 사용 시 프로그램을 종료한 뒤 `data/newsletter.db`와 필요한 `.env`를 동일 위치에 둔다. 별도 데이터 폴더는 `--data-dir`로 지정할 수 있다. 같은 작업 루트에 `files/branding`, `files/imports`, `files/exports`가 자동 생성된다. 사용자 등록 원본과 내보낸 파일은 여기에서 관리한다. 업그레이드 시 `data/`, `files/`, `.env`를 유지한다. 실행 파일은 코드 서명되지 않았으며 외부 배포 전 조직 보안 정책을 확인한다.
 
 이하 버전별 설명 및 명령은 개발자용이며 이전 버전의 기록도 포함한다. 현재 사용자 조작은 `USER_MANUAL.md`를 우선한다.
 
