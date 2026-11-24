@@ -113,7 +113,7 @@
   <details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="runs" class="hint"></div></details>
 </section>
 <section class="view-panel" id="view-preview" hidden><h2 class="view-title">뉴스레터 미리보기·확정</h2><p class="view-subtitle">최종 확정 시 현재 기사 선택과 HTML을 보존해. 확정 후에는 수정할 수 없으며, 메일 발송은 수행하지 않아.</p>
-<div class="surface airy"><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
+<div class="surface airy"><div class="template-choice"><label for="templateChoice">뉴스레터 출력 템플릿</label> <select id="templateChoice"><option value="classic">템플릿 1 · 892호 기존 형식</option><option value="outlook_cards">템플릿 2 · Outlook 뉴스카드</option></select><p class="status" id="templateMessage" role="status">회차별로 저장되며 확정 이후 변경할 수 없어.</p></div><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
 <iframe id="newsletterPreview" class="iframe-preview" title="뉴스레터 출력 미리보기" sandbox="allow-same-origin"></iframe></div>
 <div class="surface airy" style="margin-top:16px"><h3>회차 최종 확정</h3><div class="form-row"><label>회차 번호 (선택)<input id="issueNumber" placeholder="예: 893"></label><label>확정 담당자<input id="confirmedBy" placeholder="담당자 이름"></label></div>
 <label class="checkline" style="margin:14px 0"><input id="finalAck" type="checkbox">수집 상태·원문 검증·수록 내용과 로고/연락처 미연결 항목을 검토했어</label>
@@ -478,6 +478,9 @@ function updateDashboard(){if(!db)return;const ed=db.edition;
  $('dashAlert').textContent=db.runs.some(x=>x.status==='partial'||x.status==='failed')?'일부 수집 기록이 미완료·실패 상태야. 원문 검증을 확인해.':'수집과 편집 상태를 확인해.';
  $('headerEdition').textContent=ed.title+' · '+db.week_label+' · '+(ed.status==='confirmed'?'확정':'초안');
  $('finalState').textContent=ed.status==='confirmed'?'확정본 · '+(ed.confirmed_at||''):'미확정 미리보기 · 실제 발송되지 않아';
+ $('templateChoice').value=ed.template_id||'classic';
+ $('templateChoice').disabled=ed.status==='confirmed';
+ $('templateMessage').textContent=ed.status==='confirmed'?'확정된 템플릿 · 변경 불가':'회차별 템플릿 · 미리보기와 HTML 다운로드에 적용';
  $('confirmIssue').disabled=ed.status==='confirmed';$('runAi').disabled=ed.status==='confirmed'||!aiReady;
  $('startCollection').disabled=ed.status==='confirmed'||collectionRunning;updateSourceToggles();
  $('newEdition').disabled=collectionRunning;
@@ -485,6 +488,16 @@ function updateDashboard(){if(!db)return;const ed=db.edition;
 }
 function refreshPreview(){$('newsletterPreview').src='/preview/html?refresh='+Date.now()}
 $('reloadPreview').addEventListener('click',refreshPreview);
+$('templateChoice').addEventListener('change',async()=>{
+ const chosen=$('templateChoice').value;
+ if(!db||db.edition.status==='confirmed')return;
+ try{await api('/api/edition/template',{template_id:chosen});
+     db.edition.template_id=chosen;
+     $('templateMessage').textContent='템플릿 변경 저장됨 · 미리보기 갱신 완료';
+     refreshPreview();}
+ catch(err){$('templateChoice').value=db.edition.template_id||'classic';
+     $('templateMessage').textContent='변경 실패: '+err.message;}
+});
 $('confirmIssue').addEventListener('click',async()=>{if(!db||db.edition.status==='confirmed')return;
  if(!$('finalAck').checked){$('confirmMessage').textContent='수집·내용·미연결 항목 검토 확인을 선택해.';return}
  if(!confirm('이 회차를 확정하면 수정할 수 없어. 현재 HTML과 원본 스냅샷을 고정할까?'))return;

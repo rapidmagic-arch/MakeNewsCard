@@ -95,6 +95,8 @@ def setup(con):
     for name in ('issue_number','confirmed_at','confirmed_by'):
         if name not in edition_columns:
             con.execute(f'ALTER TABLE editions ADD COLUMN {name} TEXT')
+    if 'template_id' not in edition_columns:
+        con.execute("ALTER TABLE editions ADD COLUMN template_id TEXT NOT NULL DEFAULT 'classic'")
     existing={row[1] for row in con.execute('PRAGMA table_info(decisions)')}
     for name,definition in {
         'ai_relevance':'TEXT',
