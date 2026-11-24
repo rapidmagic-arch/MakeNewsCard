@@ -231,12 +231,13 @@ def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session
     except Exception as exc:
         issues.append(type(exc).__name__+': '+str(exc)[:260]);status='failed' if pages==0 else 'partial'
     # Preserve usable earlier pages even if a subsequent page or cross-check fails.
-    item_ids=[save_item(con,item) for item in records]
+    stats={'new':0,'unchanged':0,'changed':0}
+    item_ids=[save_item(con,item,stats=stats) for item in records]
     con.commit()
-    audit.update(issues=issues,duplicate_rows=duplicate_rows,undated=undated)
+    audit.update(issues=issues,duplicate_rows=duplicate_rows,undated=undated,save_counts=stats)
     log_run(con,key,start,end,status,pages,len(records),audit,edition_id=edition_id)
     return {'source':key,'status':status,'pages':pages,'records':len(records),'item_ids':item_ids,
-            'duplicate_rows':duplicate_rows,'undated':undated,
+            'duplicate_rows':duplicate_rows,'undated':undated,'save_counts':stats,
             'rss_crosscheck':audit.get('rss_crosscheck'), 'issues':issues}
 
 
