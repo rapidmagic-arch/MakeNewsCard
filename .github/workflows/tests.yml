@@ -40,3 +40,67 @@ jobs:
             echo "::endgroup::"
           done
           exit "$status"
+
+  windows-package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: x64
+      - run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Build standalone executable
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console --name MakeNewsCard --add-data "editor.html:." --add-data "assets:assets" --add-data "config:config" --add-data "templates:templates" windows_launcher.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify packaged application and external environment
+        shell: pwsh
+        run: |
+          $homeDir = Join-Path $env:RUNNER_TEMP 'meditip-smoke'
+          New-Item -ItemType Directory -Force $homeDir | Out-Null
+          Set-Content -Path (Join-Path $homeDir '.env') -Value "OPENAI_API_KEY=local-smoke-placeholder" -Encoding ascii
+          $exe = (Resolve-Path 'dist/MakeNewsCard.exe').Path
+          $oldPath = $env:Path
+          $oldKey = $env:OPENAI_API_KEY
+          Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
+          $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
+          $proc = Start-Process -FilePath $exe -ArgumentList "--data-dir `"$homeDir`" --port 18765 --no-browser" -PassThru
+          try {
+            $base = 'http://127.0.0.1:18765'
+            $ready = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              try { $html = Invoke-WebRequest "$base/" -TimeoutSec 2; $ready = $html.StatusCode -eq 200; if ($ready) { break } } catch { Start-Sleep -Seconds 1 }
+            }
+            if (!$ready) { throw 'Packaged application failed to start' }
+            if ($html.Content -notmatch 'name="local-token"') { throw 'Editor not served' }
+            if ((Invoke-WebRequest "$base/assets/editor.js").StatusCode -ne 200) { throw 'JS missing' }
+            if ((Invoke-WebRequest "$base/assets/editor.css").StatusCode -ne 200) { throw 'CSS missing' }
+            $settings = Invoke-RestMethod "$base/api/settings"
+            if (!$settings.ai_api_available) { throw 'External .env not loaded' }
+            if (($settings | ConvertTo-Json -Depth 10) -match 'local-smoke-placeholder') { throw 'API key exposed' }
+            $edition = Invoke-RestMethod "$base/api/edition"
+            if ($edition.edition.status -ne 'draft' -or $edition.items.Count -ne 0) { throw 'Unexpected initial state' }
+            $preview = Invoke-WebRequest "$base/preview/html"
+            if ($preview.Content -notmatch 'data:image/jpeg;base64,') { throw 'Embedded template assets missing' }
+            if (!(Test-Path (Join-Path $homeDir 'data/newsletter.db'))) { throw 'Persistent database missing' }
+            Write-Host 'PACKAGED WINDOWS SMOKE PASS'
+          } finally {
+            & "$env:SystemRoot\System32\taskkill.exe" /PID $proc.Id /T /F 2>$null
+            $env:Path = $oldPath
+            if ($null -ne $oldKey) { $env:OPENAI_API_KEY = $oldKey }
+          }
+      - name: Upload Windows distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: MakeNewsCard-Windows-x64
+          path: |
+            dist/MakeNewsCard.exe
+            .env.example
+            USER_MANUAL.md
+          if-no-files-found: error
+          retention-days: 30
