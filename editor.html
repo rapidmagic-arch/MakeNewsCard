@@ -460,7 +460,7 @@ function renderDetail(){
  if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;detailDirty=true;counter();$('detailStatus').textContent='GPT 요약을 복사했어. 확인 후 저장을 눌러야 반영돼.'});
  $('detailInclude').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{include_detail:e.target.checked}})));
  if($('detailCompany'))$('detailCompany').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{company_selected:e.target.checked}})));
- $('detailTop').addEventListener('change',e=>{const ids=ordered().map(y=>y.id).filter(id=>id!==x.id);if(e.target.checked)ids.push(x.id);act(async()=>{await api('/api/top-order',{ids});showRankQueue('top')})});
+ $('detailTop').addEventListener('change',e=>{const ids=ordered().map(y=>y.id).filter(id=>id!==x.id);if(e.target.checked)ids.push(x.id);act(()=>api('/api/top-order',{ids}))});
  $('detailSection').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{section_override:e.target.value}})));
  $('saveDetailText').addEventListener('click',async()=>{
   const title=$('detailTitle').value,summary=$('detailSummary').value;
@@ -495,7 +495,7 @@ document.addEventListener('keydown',e=>{
  }
 });
 $('queueTabs').addEventListener('click',e=>{const btn=e.target.closest('[data-queue]');if(!btn)return;queueKind=btn.dataset.queue;selectedIds.clear();pageIndex=0;cardIndex=0;render()});
-$('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move],[data-remove-top]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id);if(i<0)return;if(btn.hasAttribute('data-remove-top')){ids.splice(i,1);act(()=>api('/api/top-order',{ids}));return;}const j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
+$('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move],[data-remove-top]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id);if(i<0)return;if(btn.hasAttribute('data-remove-top')){ids.splice(i,1);act(()=>api('/api/top-order',{ids}));return;}const j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(async()=>{await api('/api/top-order',{ids});showRankQueue('top')})});
 $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Number($('target').value)})));
 [['search','input'],['group','change'],['industrySection','change'],['actualSection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{selectedIds.clear();pageIndex=0;cardIndex=0;render()}));
 $('qualityFilter').addEventListener('change',()=>{if($('qualityFilter').value!=='all')queueKind='all';selectedIds.clear();pageIndex=0;cardIndex=0;render()});
