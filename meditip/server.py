@@ -382,20 +382,21 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 if p == '/api/approval/collect':
                     kind=obj.get('kind')
-                    if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
+                    if not isinstance(kind,str) or (kind!='all' and kind not in APPROVAL_SPECS):
                         raise ValueError('Unknown approval category')
+                    kinds=list(APPROVAL_SPECS) if kind=='all' else [kind]
                     with lock:
                         if job['state']=='running' or ai_job['state']=='running':
                             self._json({'error':'현재 수집 또는 분석 작업 종료 후 실행하세요.'},409)
                             return
                         with connect(db_path) as con:
                             ed=require_draft(con,active['edition'])
-                            ensure_single_approval_mode(con,kind,ed,'live')
+                            if kind!='all':ensure_single_approval_mode(con,kind,ed,'live')
                         job.clear()
-                        job.update(state='running',approval_kind=kind,results=[],processed=0,total=1,
-                                   current='official_live_'+kind,error=None,edition_id=ed['id'],
+                        job.update(state='running',approval_kind=kind,results=[],processed=0,total=len(kinds),
+                                   current='official_live_'+kinds[0],error=None,edition_id=ed['id'],
                                    started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
-                        threading.Thread(target=run_approval,args=(kind,ed['id']),daemon=True).start()
+                        threading.Thread(target=run_approval,args=(kinds,ed['id']),daemon=True).start()
                     self._json(job_snapshot(),202)
                     return
                 if p == '/api/article/recheck':
