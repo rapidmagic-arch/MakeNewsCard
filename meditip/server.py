@@ -16,7 +16,7 @@ import yaml
 
 from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail
 from .company import register_company, set_company_order
-from .branding import public_branding, save_branding, get_branding, IMAGES
+from .branding import public_branding, save_branding, get_branding, IMAGES, save_default_contact
 from .managed_files import ManagedFiles, workspace_for_db, safe_stem
 from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
@@ -384,10 +384,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     raise ValueError('JSON object required')
                 p = urlsplit(self.path).path
                 if p == '/api/files/open':
-                    import os
-                    if os.name!='nt':raise ValueError('Windows에서만 폴더 열기를 지원합니다.')
-                    os.startfile(str(managed.root))
-                    self._json({'ok':True})
+                    try:managed.open_folder()
+                    except OSError as exc:raise ValueError('탐색기 실행 실패 · 경로 복사로 직접 열어 주세요.') from exc
+                    self._json({'ok':True,'path':str(managed.root)})
                     return
                 if p == '/api/collect':
                     keys = obj.get('sources')
@@ -543,6 +542,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with lock, connect(db_path) as con:
+                    if p == '/api/branding/default-contact':
+                        self._json({'ok':True,'default_contact':save_default_contact(con,obj)})
+                        return
                     if p == '/api/branding/save':
                         self._json({'ok':True,'branding':save_branding(con,obj,managed)})
                         return
