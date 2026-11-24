@@ -6,8 +6,8 @@ from html import escape
 from urllib.parse import urlsplit
 
 TEMPLATES = {
-    'classic': '템플릿 1 · 892호 기존 형식',
-    'outlook_cards': '템플릿 2 · Outlook 뉴스카드',
+    'classic': '뉴스카드 양식 v01',
+    'outlook_cards': '아웃룩 양식 v01',
 }
 DEFAULT_TEMPLATE = 'classic'
 
