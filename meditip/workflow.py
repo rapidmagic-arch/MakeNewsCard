@@ -46,10 +46,11 @@ def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
             raise ValueError('회차 번호는 1~30자의 문자·숫자·-·_만 사용할 수 있어.')
         exists=con.execute("SELECT id FROM editions WHERE issue_number=? AND id<>?",(issue_number,edition_id)).fetchone()
         if exists:raise ValueError('다른 회차에 사용 중인 회차 번호야.')
+    from .company import company_output_rows
     rows=edition_rows(con,edition_id)
     if not rows:
         raise ValueError('기사가 없는 회차는 확정할 수 없어.')
-    if not any(x['include_detail'] for x in rows) and not top_output_rows(rows, ed['top_target']):
+    if not any(x['include_detail'] for x in rows) and not company_output_rows(rows) and not top_output_rows(rows, ed['top_target']):
         raise ValueError('수록하거나 주요 뉴스로 선정된 기사가 없어 확정할 수 없어.')
     when=datetime.now(timezone.utc).isoformat(timespec='seconds')
     try:
