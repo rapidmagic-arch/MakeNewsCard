@@ -175,6 +175,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     selected=validate_template_id(template_id or edition.get('template_id') or 'classic')
     if selected=='outlook_cards':
         return render_outlook_cards(con,edition_id,final=final,preview=preview)
+    from .company import company_rows
     rows=edition_rows(con,edition_id)
     publish_view=final or preview
     if publish_view:
@@ -189,7 +190,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     first.replace_with(BeautifulSoup(top_table(tops),'html.parser'))
     second.decompose()
     replacements={
-       'company_news':company_cards([r for r in rows if r['source_group']=='company' and r['include_detail']]),
+       'company_news':company_cards([r for r in company_rows(rows) if r['include_detail']]),
        'mfds_all':group_html(rows,'mfds',publish_view),
        'industry_all':group_html(rows,'industry',publish_view)}
     for name,content in replacements.items():
@@ -248,6 +249,9 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
         for t in list(soup.find_all(string=True)):
             if any(marker in str(t) for marker in ('[원본 로고 이미지','[원본 배너 이미지','[담당자 연락처]','[담당자 이메일]','[수신거부]','[unsubscription]')):
                 t.replace_with('')
+    publication=soup.select_one('[data-publication-slot]')
+    if publication:
+        publication.string=' · '.join(x for x in (issue_label, ('발행일 '+edition['publication_date']) if edition.get('publication_date') else '', '수집 기간 '+edition['period_start']+' ~ '+edition['period_end']) if x)
     html=str(soup)
     if '{{' in html and '}}' in html:raise ValueError('Unresolved template slots remain')
     return html
