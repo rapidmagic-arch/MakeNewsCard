@@ -108,33 +108,48 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 job['current'] = None
                 job['finished_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
-    def run_approval(kind, edition):
+    def run_approval(kinds, edition):
+        """One shared progress job; each requested category succeeds or fails independently."""
+        linked=0
         try:
-            with connect(db_path) as con:
-                ed=require_draft(con,edition)
-                ensure_single_approval_mode(con,kind,ed,'live')
-            result=fetch_approval(kind,ed['period_start'],ed['period_end'])
-            with lock, connect(db_path) as con:
-                ed=require_draft(con,edition)
-                before={x['id'] for x in edition_rows(con,edition)}
-                detail=save_live_approval(con,kind,ed,result)
-                rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                prepare(con,edition,with_groups(con,rules))
-                after={x['id'] for x in edition_rows(con,edition)}
-                log_run(con,'official_live_'+kind,ed['period_start'],ed['period_end'],'success',
-                        detail['pages'],detail['records'],{'method':'official_public_list',**detail},edition_id=edition)
-                job.update(state='finished',processed=1,current=None,
-                           results=[{'source':'official_live_'+kind,'status':'success',**detail}],
-                           new_edition_links=len(after-before))
-        except Exception as exc:
-            error=type(exc).__name__+': '+str(exc)[:220]
+            for kind in kinds:
+                key='official_live_'+kind
+                with lock:job['current']=key
+                try:
+                    with connect(db_path) as con:
+                        ed=require_draft(con,edition)
+                        ensure_single_approval_mode(con,kind,ed,'live')
+                    result=fetch_approval(kind,ed['period_start'],ed['period_end'])
+                    with lock, connect(db_path) as con:
+                        ed=require_draft(con,edition)
+                        before={x['id'] for x in edition_rows(con,edition)}
+                        detail=save_live_approval(con,kind,ed,result)
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        prepare(con,edition,with_groups(con,rules))
+                        after={x['id'] for x in edition_rows(con,edition)}
+                        log_run(con,key,ed['period_start'],ed['period_end'],'success',
+                                detail['pages'],detail['records'],{'method':'official_public_list',**detail},edition_id=edition)
+                        linked+=len(after-before)
+                    outcome={'source':key,'status':'success',**detail}
+                except Exception as exc:
+                    error=type(exc).__name__+': '+str(exc)[:220]
+                    with connect(db_path) as con:
+                        ed=get_edition(con,edition)
+                        log_run(con,key,ed['period_start'],ed['period_end'],'failed',0,0,
+                                {'method':'official_public_list','error':error},edition_id=edition)
+                    outcome={'source':key,'status':'failed','records':0,'issues':[error]}
+                with lock:
+                    job['results'].append(outcome)
+                    job['processed']+=1
+                    job['new_edition_links']=linked
             with lock:
-                job.update(state='failed',error=error,current=None,processed=1)
-            with connect(db_path) as con:
-                log_run(con,'official_live_'+kind,None,None,'failed',0,0,
-                        {'method':'official_public_list','error':error},edition_id=edition)
+                successes=sum(x['status']=='success' for x in job['results'])
+                job.update(state='finished' if successes else 'failed',error=None if successes else '모든 승인·허가 자료 조회 실패')
+        except Exception as exc:
+            with lock:job.update(state='failed',error=type(exc).__name__+': '+str(exc)[:220])
         finally:
             with lock:
+                job['current']=None
                 job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     def run_ai_review(payload, edition):
