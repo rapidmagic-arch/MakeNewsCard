@@ -50,8 +50,13 @@ def test_http_ai_export_import_bulk(tmp_path):
     item=ai['items'][0]
     ai_result={'items':[{'id':item['id'],'score':85,'summary':'내용을 확인해야 하는 AI 제안','section':'industry.global','recommended':True,'reason':'외부 분석 제안'}]}
     assert req('POST','/api/ai/import',ai_result)[0]==403
-    code,content=req('POST','/api/ai/import',ai_result,token)
+    import base64
+    original=('\ufeff'+json.dumps(ai_result,ensure_ascii=False,indent=4)+'\r\n').encode('utf8')
+    code,content=req('POST','/api/ai/import',{'filename':'원본.json','content':base64.b64encode(original).decode()},token)
     assert code==200 and json.loads(content)['analysed']==1
+    root=tmp_path/'files'
+    assert (root/json.loads(content)['managed_file']).read_bytes()==original
+    assert list((root/'exports').rglob('candidates-*.json'))
     code,content=req('GET','/api/edition')
     rows=json.loads(content)['items'];assert not any(x['include_detail'] for x in rows)
     code,content=req('POST','/api/industry/bulk',{'mode':'apply_recommended','ids':[item['id']]},token)
@@ -60,3 +65,7 @@ def test_http_ai_export_import_bulk(tmp_path):
     assert sum(x['include_detail'] for x in json.loads(content)['items'])==1
     code,content=req('GET','/export/html')
     assert code==200 and item['title'] in content
+    saved=list((root/'exports').rglob('newsletter-*.html'))
+    assert len(saved)==1 and saved[0].read_bytes()==content.encode('utf8')
+    assert req('GET','/export/html')[0]==200
+    assert len(list((root/'exports').rglob('newsletter-*.html')))==1
