@@ -57,7 +57,7 @@ window.fetch=async function(path,opts){
        data={ok:true};
     }else if(path==='/api/target'){window.__data.edition.top_target=body.count;data={ok:true};}
     else if(path==='/api/ai/review'){data={ok:true,total:body.ids.length};}
-    else if(path==='/api/ai/import'){data={analysed:body.items.length};}
+    else if(path==='/api/ai/import'){const proposal=body.content?JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(body.content),c=>c.charCodeAt(0)))):body;data={analysed:proposal.items.length};}
     else if(path==='/api/review-groups/save'){
       const list=window.__settings.review_groups;const id=body.id||'custom-1';
       const prev=list.findIndex(x=>x.id===id);const g={...body,id};
