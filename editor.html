@@ -45,13 +45,16 @@
  <progress id="collectionProgress" value="0" max="1" aria-label="사이트별 수집 진행률"></progress>
  <div id="collectionResults" class="results collection-problems" aria-label="0건 또는 수집 오류" hidden></div>
  
-</section><details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="collectionSummary" class="hint"></div><div id="runs" class="hint"></div></details></section>
+</section>
+<section class="surface airy" aria-label="승인 및 허가현황 등록"><h3>승인·허가현황 CSV 등록</h3><div class="form-row"><label>자료 유형<select id="approvalKind"><option value="clinical">임상시험 승인</option><option value="treatment">치료목적 사용승인</option><option value="drug">의약품 허가</option></select></label><label>공식 조회 자료 CSV<input id="approvalFile" type="file" accept=".csv,text/csv"></label></div><div class="actions"><button id="importApproval" class="primary">CSV 등록</button><a href="https://nedrug.mfds.go.kr/searchClinic" target="_blank" rel="noopener noreferrer">임상시험</a><a href="https://nedrug.mfds.go.kr/pbp/CCBBQ01" target="_blank" rel="noopener noreferrer">치료목적</a><a href="https://nedrug.mfds.go.kr/pbp/CCBAE01" target="_blank" rel="noopener noreferrer">품목허가</a></div><p id="approvalStatus" class="status" role="status"></p></section>
+<details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="collectionSummary" class="hint"></div><div id="runs" class="hint"></div></details></section>
 <section class="view-panel" id="view-edit" hidden>
   <div class="review-heading">
     <div></div>
     <div class="review-shortcuts"><button type="button" data-go="settings">추천 그룹 설정</button><button type="button" class="primary" data-go="preview">출력 미리보기</button></div>
   </div>
   <div class="notice" id="editionScope"></div>
+  <section class="surface airy" aria-label="메디팁 주요 소식"><h3>메디팁 주요 소식</h3><div id="companyList"></div><details class="secondary-tools"><summary>회사 소식 등록</summary><div class="form-row"><label>기사 제목<input id="companyTitle" maxlength="500"></label><label>출처<input id="companyPublisher" maxlength="100"></label><label>원문 URL<input id="companyUrl" type="url" maxlength="2000"></label><label>기사 날짜<input id="companyDate" type="date"></label></div><label>요약<textarea id="companySummary" maxlength="2000"></textarea></label><button id="saveCompany" class="primary">소식 등록</button></details><p id="companyStatus" class="status" role="status"></p></section>
   <section class="surface review-ai" aria-label="기사 분석">
     <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3></div><button id="runAi" class="primary">GPT 분석 시작</button></div>
     <div class="ai-counts" id="aiCounts"></div><p id="aiJobStatus" class="status" role="status" aria-live="polite"></p>
@@ -70,7 +73,7 @@
     </div>
     <div class="queue-filters">
       <input type="search" id="search" placeholder="제목 · 출처 · 키워드 검색" aria-label="기사 검색">
-      <label for="group">출처 <select id="group"><option value="all">전체 출처</option><option value="industry">언론기사</option><option value="mfds">식약처</option><option value="company">회사 소식</option></select></label>
+      <label for="group">출처 <select id="group"><option value="all">전체 출처</option><option value="industry">언론기사</option><option value="mfds">식약처</option><option value="company">회사 소식</option><option value="clinical">임상시험 승인</option><option value="treatment">치료목적 사용승인</option><option value="drug">의약품 허가</option></select></label>
       <label for="industrySection">발행 분야 <select id="industrySection"><option value="all">전체 분야</option><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구개발</option><option value="industry.unclassified">미분류</option></select></label>
        <label for="reviewGroup">추천 그룹 <select id="reviewGroup"><option value="all">전체 그룹</option></select></label>
     </div>
@@ -105,9 +108,9 @@
 <section class="view-panel" id="view-preview" hidden>
 <div class="surface airy"><div class="template-choice"><label for="templateChoice">뉴스레터 출력 템플릿</label> <select id="templateChoice"><option value="classic">템플릿 1 · 892호 기존 형식</option><option value="outlook_cards">템플릿 2 · Outlook 뉴스카드</option></select><p class="status" id="templateMessage" role="status"></p></div><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><div id="previewTopState" class="top-state" role="status"></div><p class="status" id="finalState" role="status"></p>
 <iframe id="newsletterPreview" class="iframe-preview" title="뉴스레터 출력 미리보기" sandbox="allow-same-origin"></iframe></div>
-<div class="surface airy" style="margin-top:16px"><h3>회차 최종 확정</h3><div class="form-row"><label>회차 번호 (선택)<input id="issueNumber" placeholder="예: 893"></label><label>확정 담당자<input id="confirmedBy" placeholder="담당자 이름"></label></div>
+<div class="surface airy" style="margin-top:16px"><h3>회차 최종 확정</h3><div class="form-row"><label>회차 번호 (선택)<input id="issueNumber" placeholder="예: 893"></label><label>발행일<input id="publicationDate" type="date"></label><label>확정 담당자<input id="confirmedBy" placeholder="담당자 이름"></label></div>
 <label class="checkline" style="margin:14px 0"><input id="finalAck" type="checkbox">수집 상태·원문 검증·수록 내용과 로고/연락처 미연결 항목을 검토했어</label>
-<div class="actions"><button id="confirmIssue" class="primary">이 회차 최종 확정</button></div><p id="confirmMessage" class="status" role="status"></p></div></section>
+<div class="actions"><button id="savePublication">발행 정보 저장</button><button id="confirmIssue" class="primary">이 회차 최종 확정</button></div><p id="confirmMessage" class="status" role="status"></p></div></section>
 <section class="view-panel" id="view-settings" hidden>
 <section class="surface airy" aria-label="추천 그룹 설정"><h3>추천 그룹 관리</h3>
 
@@ -125,9 +128,9 @@
 </main></div></div>
 <script>
 'use strict';const TOKEN='__LOCAL_TOKEN__';let db=null;let reviewGroups=[],editingReviewGroupId=null;let queueKind="recommended", detailItemId=null, detailDirty=false, aiReady=false;const selectedIds=new Set();const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const sec=['mfds.guides','mfds.regulations','mfds.press','mfds.notices','industry.policy','industry.market','industry.global','industry.rnd','industry.unclassified','company.news'];
-const sectionLabel={'mfds.guides':'식약처 지침·안내서','mfds.regulations':'식약처 고시·법령','mfds.press':'식약처 보도자료','mfds.notices':'식약처 공지·공고','industry.policy':'정책','industry.market':'시장','industry.global':'글로벌','industry.rnd':'연구개발','industry.unclassified':'미분류','company.news':'회사 소식'};
-const sourceLabel={'guides_staff':'공무원지침서','guides_citizen':'민원인안내서','preannouncements':'입법·행정예고','enacted_notices':'제·개정고시','laws':'법령','press':'보도자료','notice':'공지','announcement':'공고','dailypharm':'데일리팜','medisobizanews':'메디소비자뉴스','medicaltimes':'메디칼타임즈','kpanews':'약사공론','yakup':'약업신문'};
+const sec=['mfds.guides','mfds.regulations','mfds.press','mfds.notices','industry.policy','industry.market','industry.global','industry.rnd','industry.unclassified','company.news','clinical.approval','clinical.treatment','drug.approvals'];
+const sectionLabel={'mfds.guides':'식약처 지침·안내서','mfds.regulations':'식약처 고시·법령','mfds.press':'식약처 보도자료','mfds.notices':'식약처 공지·공고','industry.policy':'정책','industry.market':'시장','industry.global':'글로벌','industry.rnd':'연구개발','industry.unclassified':'미분류','company.news':'회사 소식','clinical.approval':'임상시험 승인','clinical.treatment':'치료목적 사용승인','drug.approvals':'의약품 허가'};
+const sourceLabel={'guides_staff':'공무원지침서','guides_citizen':'민원인안내서','preannouncements':'입법·행정예고','enacted_notices':'제·개정고시','laws':'법령','press':'보도자료','notice':'공지','announcement':'공고','dailypharm':'데일리팜','medisobizanews':'메디소비자뉴스','medicaltimes':'메디칼타임즈','kpanews':'약사공론','yakup':'약업신문','company_manual':'메디팁 등록 자료','official_csv_clinical':'임상시험 CSV','official_csv_treatment':'치료목적 CSV','official_csv_drug':'품목허가 CSV'};
 let pageIndex=0,cardIndex=0,cardMode=false,libraryPageNumber=1;const PAGE_SIZE=12;const LIBRARY_PAGE_SIZE=12;
 async function api(path,payload){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':TOKEN},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw Error(j.error||'저장 실패');return j}
 async function load(){const r=await fetch('/api/edition');if(!r.ok)throw Error('회차 정보를 읽을 수 없어');db=await r.json();render();setEditionFields();await loadEditionPicker()}
@@ -180,6 +183,7 @@ $('applyEditionSwitch').addEventListener('click',async()=>{
 let collectionRunning=false, collectionWasActive=false, pollBusy=false, collectionError='', collectionSubmitting=false;
 let sourceCatalog=new Map();
 function setEditionFields(){
+ $('publicationDate').value=db.edition.publication_date||'';
  $('activeEdition').textContent='현재 회차: '+db.edition.title+' ('+db.edition.period_start+' ~ '+db.edition.period_end+')';
  updateDashboard();
  // Preserve dates entered by the operator except on first load or edition switch.
@@ -286,7 +290,7 @@ function reviewStatus(x){
  return hasAi(x)&&x.ai_relevance==='irrelevant'?'other':'review';
 }
 function queueMatch(x){return queueKind==='all'||(queueKind==='included'?Boolean(x.include_detail):reviewStatus(x)===queueKind)}
-function sectionSelectOptions(x){return sec.filter(y=>x.source_group==='mfds'?y.startsWith('mfds.'):x.source_group==='industry'?y.startsWith('industry.'):x.source_group==='company'?y.startsWith('company.'):false)}
+function sectionSelectOptions(x){return sec.filter(y=>x.source_group==='mfds'?y.startsWith('mfds.'):x.source_group==='industry'?y.startsWith('industry.'):x.source_group==='company'?y.startsWith('company.'):x.source_group==='clinical'?y==='clinical.approval':x.source_group==='treatment'?y==='clinical.treatment':x.source_group==='drug'?y==='drug.approvals':false)}
 let currentPageRows=[];
 function articleTags(x){const ai=hasAi(x),suggested=isSuggested(x),rank=ordered().findIndex(y=>y.id===x.id)+1;const top=Array.isArray(db.top_output_ids)?(db.top_output_ids.includes(x.id)?' · 출력':' · 예비'):'';return '<span class="tag '+(x.include_detail?'selected':'tag-neutral')+'">'+(x.include_detail?'수록':'미수록')+'</span><span class="tag '+(ai?'tag-ai':suggested?'tag-rule':x.source_group==='industry'?'tag-review':'tag-neutral')+'">'+(ai?(suggested?'GPT 추천':'GPT 검토'):suggested?'규칙 추천':x.source_group==='industry'?'추가 검토':'기관 자료')+'</span>'+(x.top_selected?'<span class="tag tag-top">TOP '+rank+esc(top)+'</span>':'');}
 function renderCardGallery(view){
@@ -317,8 +321,21 @@ $('cardNext').addEventListener('click',()=>{cardIndex++;render()});
 $('cardGallery').addEventListener('click',e=>{const btn=e.target.closest('[data-open-id]');if(btn)openCandidate(btn.dataset.openId)});
 $('cardGallery').addEventListener('change',e=>{const box=e.target.closest('[data-card-select]');if(!box)return;
  if(box.checked)selectedIds.add(box.dataset.cardSelect);else selectedIds.delete(box.dataset.cardSelect);render()});
+function companyRows(){return (db?.items||[]).filter(x=>x.source_group==='company').sort((a,b)=>(a.company_rank??999999)-(b.company_rank??999999)||a.id.localeCompare(b.id))}
+function renderCompany(){
+ const rows=companyRows(),locked=db.edition.status==='confirmed';
+ $('companyList').innerHTML=rows.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><button class="company-open" data-company-open="'+esc(x.id)+'">'+esc(x.title_override??x.title)+'</button><span class="tag '+(x.include_detail?'selected':'tag-neutral')+'">'+(x.include_detail?'수록':'미수록')+'</span><button data-company-move="-1" data-id="'+esc(x.id)+'" '+(locked||i===0?'disabled':'')+' aria-label="위로">↑</button><button data-company-move="1" data-id="'+esc(x.id)+'" '+(locked||i===rows.length-1?'disabled':'')+' aria-label="아래로">↓</button></div>').join('');
+ $('saveCompany').disabled=locked;$('importApproval').disabled=locked;
+ $('savePublication').disabled=locked;$('publicationDate').disabled=locked;
+}
+$('companyList').addEventListener('click',async e=>{const open=e.target.closest('[data-company-open]');if(open){openCandidate(open.dataset.companyOpen);$('detailPanel').scrollIntoView({block:'nearest'});return}const btn=e.target.closest('[data-company-move]');if(!btn)return;const ids=companyRows().map(x=>x.id),i=ids.indexOf(btn.dataset.id),j=i+Number(btn.dataset.companyMove);if(i<0||j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];try{await api('/api/company/order',{ids});await load()}catch(err){$('companyStatus').textContent=err.message}});
+$('saveCompany').addEventListener('click',async()=>{try{const result=await api('/api/company/register',{title:$('companyTitle').value,publisher:$('companyPublisher').value,url:$('companyUrl').value,published_at:$('companyDate').value,summary:$('companySummary').value});for(const id of ['companyTitle','companyPublisher','companyUrl','companyDate','companySummary'])$(id).value='';await load();$('companyStatus').textContent='등록 완료';}catch(err){$('companyStatus').textContent=err.message}});
+$('importApproval').addEventListener('click',async()=>{const file=$('approvalFile').files[0];if(!file||file.size>2500000){$('approvalStatus').textContent='2.5MB 이하 CSV를 선택하세요.';return}try{const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=16384)raw+=String.fromCharCode(...bytes.subarray(i,i+16384));const result=await api('/api/approval/import',{kind:$('approvalKind').value,content:btoa(raw)});await load();$('approvalStatus').textContent='등록 '+result.imported+'건 · 제외 '+result.skipped.length+'건'+(result.skipped.length?' · '+result.skipped.slice(0,5).map(x=>x.line+'행: '+x.reason).join(' / '):'');}catch(err){$('approvalStatus').textContent=err.message}});
+async function savePublication(){await api('/api/edition/publication',{issue_number:$('issueNumber').value.trim(),publication_date:$('publicationDate').value});await load();refreshPreview()}
+$('savePublication').addEventListener('click',async()=>{try{await savePublication();$('confirmMessage').textContent='발행 정보 저장 완료'}catch(err){$('confirmMessage').textContent=err.message}});
 function render(){
  if(!db)return;
+ renderCompany();
  const all=db.items, top=ordered(), q=$('search').value.trim().toLowerCase(),g=$('group').value,sf=$('industrySection').value,rg=$('reviewGroup').value;
  for(const id of [...selectedIds])if(!all.some(x=>x.id===id&&x.source_group==='industry'))selectedIds.delete(id);
  $('stats').innerHTML='<div class="stat"><b>'+all.length+'</b><small>전체 자료</small></div><div class="stat"><b>'+all.filter(x=>x.include_detail).length+'</b><small>수록 자료</small></div><div class="stat"><b>'+top.length+'</b><small>TOP 후보</small></div>';
@@ -484,7 +501,7 @@ $('templateChoice').addEventListener('change',async()=>{
 $('confirmIssue').addEventListener('click',async()=>{if(!db||db.edition.status==='confirmed')return;
  if(!$('finalAck').checked){$('confirmMessage').textContent='수집·내용·미연결 항목 검토 확인을 선택해.';return}
  if(!confirm('이 회차를 확정하면 수정할 수 없어. 현재 HTML과 원본 스냅샷을 고정할까?'))return;
- try{const result=await api('/api/confirm',{confirmed_by:$('confirmedBy').value.trim(),issue_number:$('issueNumber').value.trim(),acknowledged:true});
+ try{await savePublication();const result=await api('/api/confirm',{confirmed_by:$('confirmedBy').value.trim(),issue_number:$('issueNumber').value.trim(),acknowledged:true});
  $('confirmMessage').textContent='확정 완료 · SHA256 '+result.html_sha256.slice(0,12);await load();refreshPreview();}
  catch(e){$('confirmMessage').textContent='확정 오류: '+e.message;}});
 function renderReviewGroups(){
