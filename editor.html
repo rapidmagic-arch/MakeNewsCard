@@ -343,7 +343,7 @@ $('viewModeToggle').addEventListener('click',()=>{cardMode=!cardMode;if(cardMode
 $('cardPrev').addEventListener('click',()=>{cardIndex=Math.max(0,cardIndex-1);render()});
 $('cardNext').addEventListener('click',()=>{cardIndex++;render()});
 $('cardGallery').addEventListener('click',e=>{const btn=e.target.closest('[data-open-id]');if(btn)openCandidate(btn.dataset.openId)});
-$('cardGallery').addEventListener('change',e=>{const box=e.target.closest('[data-card-select]');if(!box||box.disabled)return;
+$('cardGallery').addEventListener('change',e=>{const box=e.target.closest('[data-card-select]');if(!box||box.disabled||db?.edition?.status==='confirmed')return;
  if(box.checked)selectedIds.add(box.dataset.cardSelect);else selectedIds.delete(box.dataset.cardSelect);render()});
 function companyRows(){return (db?.items||[]).filter(x=>x.source_group==='company'||x.company_selected).sort((a,b)=>(a.company_rank??999999)-(b.company_rank??999999)||a.id.localeCompare(b.id))}
 function renderCompany(){
@@ -355,7 +355,7 @@ function renderCompany(){
 }
 $('companyList').addEventListener('click',async e=>{const open=e.target.closest('[data-company-open]');if(open){openCandidate(open.dataset.companyOpen);$('detailPanel').scrollIntoView({block:'nearest'});return}const btn=e.target.closest('[data-company-move]');if(!btn)return;const ids=companyRows().map(x=>x.id),i=ids.indexOf(btn.dataset.id),j=i+Number(btn.dataset.companyMove);if(i<0||j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];try{await api('/api/company/order',{ids});await load()}catch(err){$('companyStatus').textContent=err.message}});
 $('saveCompany').addEventListener('click',async()=>{try{const result=await api('/api/company/register',{title:$('companyTitle').value,publisher:$('companyPublisher').value,url:$('companyUrl').value,published_at:$('companyDate').value,summary:$('companySummary').value});for(const id of ['companyTitle','companyPublisher','companyUrl','companyDate','companySummary'])$(id).value='';await load();$('companyStatus').textContent='등록 완료';}catch(err){$('companyStatus').textContent=err.message}});
-$('importApproval').addEventListener('click',async()=>{const file=$('approvalFile').files[0];if(!file||file.size>2500000){$('approvalStatus').textContent='2.5MB 이하 CSV를 선택하세요.';return}try{const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=16384)raw+=String.fromCharCode(...bytes.subarray(i,i+16384));const result=await api('/api/approval/import',{kind:$('approvalKind').value,content:btoa(raw)});await load();$('approvalStatus').textContent='등록 '+result.imported+'건 · 제외 '+result.skipped.length+'건'+(result.skipped.length?' · '+result.skipped.slice(0,5).map(x=>x.line+'행: '+x.reason).join(' / '):'');}catch(err){$('approvalStatus').textContent=err.message}});
+$('importApproval').addEventListener('click',async()=>{const file=$('approvalFile').files[0];if(!file||fileError($('approvalFile'),file)){$('approvalStatus').textContent='2.5MB 이하 CSV를 선택하세요.';return}try{const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=16384)raw+=String.fromCharCode(...bytes.subarray(i,i+16384));const result=await api('/api/approval/import',{kind:$('approvalKind').value,content:btoa(raw)});await load();clearDrop('approvalFile');$('approvalStatus').textContent='등록 '+result.imported+'건 · 제외 '+result.skipped.length+'건'+(result.skipped.length?' · '+result.skipped.slice(0,5).map(x=>x.line+'행: '+x.reason).join(' / '):'');}catch(err){$('approvalStatus').textContent=err.message}});
 async function savePublication(){await api('/api/edition/publication',{issue_number:$('issueNumber').value.trim(),publication_date:$('publicationDate').value});publicationDirty=false;await load();refreshPreview()}
 $('savePublication').addEventListener('click',async()=>{try{await savePublication();$('confirmMessage').textContent='발행 정보 저장 완료'}catch(err){$('confirmMessage').textContent=err.message}});
 function render(){
@@ -467,7 +467,7 @@ async function bulkSelected(mode,value){
 $('bulkIncludeSelected').addEventListener('click',()=>bulkSelected('set_inclusion',true));
 $('bulkExcludeSelected').addEventListener('click',()=>bulkSelected('set_inclusion',false));
 $('selectVisible').addEventListener('change',e=>{for(const x of currentPageRows.filter(x=>x.source_group==='industry')){if(e.target.checked)selectedIds.add(x.id);else selectedIds.delete(x.id)}render()});
-$('items').addEventListener('change',e=>{if(!e.target.matches('[data-queue-check]'))return;const id=e.target.closest('[data-id]').dataset.id;if(e.target.checked)selectedIds.add(id);else selectedIds.delete(id);render()});
+$('items').addEventListener('change',e=>{if(!e.target.matches('[data-queue-check]')||e.target.disabled||db?.edition?.status==='confirmed')return;const id=e.target.closest('[data-id]').dataset.id;if(e.target.checked)selectedIds.add(id);else selectedIds.delete(id);render()});
 $('items').addEventListener('click',e=>{const btn=e.target.closest('[data-open-id]');if(btn)openCandidate(btn.dataset.openId)});
 $('detailBackdrop').addEventListener('click',()=>$('closeDetail')?.click());
 document.addEventListener('keydown',e=>{
@@ -487,9 +487,9 @@ $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Nu
 [['search','input'],['group','change'],['industrySection','change'],['actualSection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{selectedIds.clear();pageIndex=0;cardIndex=0;render()}));
 $('prevItems').addEventListener('click',()=>{selectedIds.clear();pageIndex=Math.max(0,pageIndex-1);render()});
 $('nextItems').addEventListener('click',()=>{selectedIds.clear();pageIndex++;render()});
-$('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').files[0];if(!file){$('industryFeedback').textContent='GPT 분석 결과 JSON을 먼저 선택해.';return}
+$('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').files[0];if(!file||fileError($('aiJsonFile'),file)){$('industryFeedback').textContent='GPT 분석 결과 JSON을 먼저 선택해.';return}
  try{const result=JSON.parse(await file.text());if(!Array.isArray(result.items))throw Error('items 배열 필요');
-  const r=await api('/api/ai/import',result);$('industryFeedback').textContent='GPT 제안 '+r.analysed+'건 등록 · 사용자가 수록 버튼을 눌러야 적용돼';await load();}
+  const r=await api('/api/ai/import',result);$('industryFeedback').textContent='GPT 제안 '+r.analysed+'건 등록 · 사용자가 수록 버튼을 눌러야 적용돼';await load();clearDrop('aiJsonFile');}
  catch(e){$('industryFeedback').textContent='GPT JSON 오류: '+e.message}
 });
 const titles={dashboard:'뉴스레터 도서관',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·확정',settings:'환경설정'};
@@ -564,7 +564,7 @@ let brandingDirty=false,sampleContact={};
 for(const id of Object.values(brandFields))$(id).addEventListener('input',()=>{brandingDirty=true});
 function showBranding(data){if(data.sample_contact)sampleContact=data.sample_contact;if(!brandingDirty)for(const [key,id] of Object.entries(brandFields))$(id).value=data[key]||'';$('brandingImages').textContent='로고: '+(data.logo_custom?'사용자 이미지':'기본 텍스트')+' · 상단 배너: '+(data.banner_custom?'사용자 이미지':'MVP 이미지')+' · 하단 배너: '+(data.footer_custom?'사용자 이미지':'MVP 이미지')}
 $('restoreSampleContact').addEventListener('click',()=>{for(const [key,id] of Object.entries(brandFields))$(id).value=sampleContact[key]||'';brandingDirty=true;$('brandingStatus').textContent='샘플 연락처 불러옴 · 저장하면 적용됩니다.'});
-function readBrandImage(file){return new Promise((resolve,reject)=>{if(!file||file.size>1000000||!['image/jpeg','image/png'].includes(file.type)){reject(Error('1MB 이하 PNG/JPEG 이미지를 선택하세요.'));return}const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('이미지 읽기 실패'));reader.readAsDataURL(file)})}
+function readBrandImage(file){return new Promise((resolve,reject)=>{if(!file||file.size>1000000){reject(Error('1MB 이하 PNG/JPEG 이미지를 선택하세요.'));return}const mime=/\.png$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':file.type;if(!['image/jpeg','image/png'].includes(mime)){reject(Error('PNG/JPEG만 등록할 수 있습니다.'));return}const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('이미지 읽기 실패'));reader.readAsDataURL(new Blob([file],{type:mime}))})}
 $('saveBranding').addEventListener('click',async()=>{$('saveBranding').disabled=true;$('brandingStatus').textContent='저장 중';try{const payload=Object.fromEntries(Object.entries(brandFields).map(([k,id])=>[k,$(id).value.trim()]));for(const [key,fileId,resetId] of [['logo','brandLogo','resetLogo'],['banner','brandBanner','resetBanner'],['footer','brandFooter','resetFooter']]){if($(resetId).checked&&$(fileId).files.length)throw Error('이미지 선택과 기본 복원을 동시에 지정할 수 없습니다.');if($(resetId).checked)payload[key]='';else if($(fileId).files.length)payload[key]=await readBrandImage($(fileId).files[0])}const res=await api('/api/branding/save',payload);brandingDirty=false;showBranding(res.branding);for(const id of ['brandLogo','brandBanner','brandFooter'])clearDrop(id);for(const id of ['resetLogo','resetBanner','resetFooter'])$(id).checked=false;$('brandingStatus').textContent='저장 완료 · 새 초안 출력에 적용'}catch(err){$('brandingStatus').textContent=err.message}finally{$('saveBranding').disabled=false}});
 async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)throw Error('설정 조회 실패');const j=await r.json();
  $('settingSources').innerHTML=j.sources.map(s=>'<div>'+esc(s.group==='mfds'?'식약처':'언론')+' · '+esc(s.key)+' <span class="muted">'+esc(s.url)+'</span></div>').join('');
