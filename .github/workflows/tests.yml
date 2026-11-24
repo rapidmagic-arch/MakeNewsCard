@@ -88,6 +88,12 @@ jobs:
             $preview = Invoke-WebRequest "$base/preview/html"
             if ($preview.Content -notmatch 'data:image/jpeg;base64,') { throw 'Embedded template assets missing' }
             if (!(Test-Path (Join-Path $homeDir 'data/newsletter.db'))) { throw 'Persistent database missing' }
+            foreach ($folder in @('files/branding/defaults','files/branding/custom','files/imports','files/exports')) {
+              if (!(Test-Path (Join-Path $homeDir $folder))) { throw "Missing managed folder: $folder" }
+            }
+            $saved = Invoke-WebRequest "$base/export/html"
+            $exports = @(Get-ChildItem (Join-Path $homeDir 'files/exports') -Recurse -Filter '*.html')
+            if ($exports.Count -ne 1) { throw 'Managed HTML export missing' }
             Write-Host 'PACKAGED WINDOWS SMOKE PASS'
           } finally {
             & "$env:SystemRoot\System32\taskkill.exe" /PID $proc.Id /T /F 2>$null
