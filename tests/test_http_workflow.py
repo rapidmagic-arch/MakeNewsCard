@@ -44,7 +44,7 @@ def test_live_http_workflow(tmp_path,monkeypatch):
             if status==200:break
         except OSError:time.sleep(.03)
     assert status==200
-    token=re.search(r"const TOKEN='([^']+)'",html).group(1)
+    token=re.search(r'name="local-token" content="([^"]+)"',html).group(1)
     status,e=request('GET','/api/edition')
     assert status==200 and e['week_label']=='2026-W47' and e['edition']['status']=='draft'
     status,settings=request('GET','/api/settings')
