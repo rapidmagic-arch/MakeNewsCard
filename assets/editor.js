@@ -167,10 +167,12 @@ $('startCollection').addEventListener('click',async()=>{
  finally{collectionSubmitting=false;$('startCollection').disabled=collectionRunning;$('newEdition').disabled=collectionRunning}
 });
 $('newEdition').addEventListener('click',async()=>{
+ const status=$('editionSetupStatus'),start=$('colStart').value,end=$('colEnd').value,id=$('newEditionId').value.trim();
+ status.textContent='';if(!start||!end||end<start){status.textContent='시작일과 종료일을 올바르게 지정하세요.';return}if(id&&!/^[0-9A-Za-z_-]{4,72}$/.test(id)){status.textContent='회차 ID는 영문·숫자·-·_ 4~72자만 가능합니다. 회차 제목에는 한글을 사용할 수 있습니다.';return}
  try{const r=await api('/api/edition/new',{start:$('colStart').value,end:$('colEnd').value,target:4,edition_id:$('newEditionId').value.trim()||undefined,title:$('newEditionTitle').value.trim()||undefined});
  detailDirty=false;detailItemId=null;selectedIds.clear();pageIndex=0;cardIndex=0;publicationDirty=false;lastApprovalMarker='';clearDrop('approvalFile');clearDrop('aiJsonFile');$('approvalStatus').textContent='';
- $('colStart').value='';$('colEnd').value='';collectionError='';await load();await pollCollection();$('collectionState').textContent='회차 전환: '+r.edition_id}
- catch(err){$('collectionState').textContent='회차 오류: '+err.message}
+ $('colStart').value='';$('colEnd').value='';collectionError='';await load();await pollCollection();$('editionSetupStatus').textContent='회차 전환 완료: '+r.edition_id}
+ catch(err){$('editionSetupStatus').textContent='회차 오류: '+err.message}
 });
 function sourceDisplay(x){if(x.source_group==='company'){try{return JSON.parse(x.original_metadata||'{}').publisher||sourceLabel[x.source_key]||x.source_key}catch(e){}}return sourceLabel[x.source_key]||x.source_key}
 function titleNeedsReview(x){return x.verification==='needs_title_review'||!String(x.title||'').trim()||(x.title||'').length>190||(x.source_key==='medicaltimes'&&/\[\s*메디칼타임즈\s*=|\[제목 확인 필요\]|20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(x.title||''))}
@@ -444,17 +446,19 @@ $('refreshReviewGroups').addEventListener('click',async()=>{
  try{const r=await api('/api/review-groups/recalculate',{});$('reviewGroupStatus').textContent='규칙 제안 '+r.candidates+'건 재계산 · 기존 수록/수동 편집 유지';await load();}catch(err){$('reviewGroupStatus').textContent=err.message}
 });
 const brandFields={contact_name:'brandContact',phone:'brandPhone',email:'brandEmail',address:'brandAddress',website:'brandWebsite'};
-let brandingDirty=false,sampleContact={};
+let brandingDirty=false,defaultContact=null;
 for(const id of Object.values(brandFields))$(id).addEventListener('input',()=>{brandingDirty=true});
-function showBranding(data){if(data.sample_contact)sampleContact=data.sample_contact;if(!brandingDirty)for(const [key,id] of Object.entries(brandFields))$(id).value=data[key]||'';$('brandingImages').textContent='로고: '+(data.logo_custom?'사용자 이미지':'기본 텍스트')+' · 상단 배너: '+(data.banner_custom?'사용자 이미지':'MVP 이미지')+' · 하단 배너: '+(data.footer_custom?'사용자 이미지':'MVP 이미지')}
-$('restoreSampleContact').addEventListener('click',()=>{for(const [key,id] of Object.entries(brandFields))$(id).value=sampleContact[key]||'';brandingDirty=true;$('brandingStatus').textContent='샘플 연락처 불러옴 · 저장하면 적용됩니다.'});
+function showBranding(data){if(data.default_contact||data.sample_contact)defaultContact=data.default_contact||data.sample_contact;$('restoreSampleContact').disabled=!defaultContact;if(!brandingDirty)for(const [key,id] of Object.entries(brandFields))$(id).value=data[key]||'';$('brandingImages').textContent='로고: '+(data.logo_custom?'사용자 이미지':'기본 텍스트')+' · 상단 배너: '+(data.banner_custom?'사용자 이미지':'MVP 이미지')+' · 하단 배너: '+(data.footer_custom?'사용자 이미지':'MVP 이미지')}
+$('restoreSampleContact').addEventListener('click',()=>{if(!defaultContact)return;for(const [key,id] of Object.entries(brandFields))$(id).value=defaultContact[key]||'';brandingDirty=true;$('brandingStatus').textContent='기본 연락처 불러옴 · 발행 환경 저장 시 적용'});
+$('saveDefaultContact').addEventListener('click',async()=>{const button=$('saveDefaultContact');button.disabled=true;try{const payload=Object.fromEntries(Object.entries(brandFields).map(([k,id])=>[k,$(id).value.trim()]));const r=await api('/api/branding/default-contact',payload);defaultContact=r.default_contact;$('brandingStatus').textContent='기본 연락처 저장 완료 · 발행 설정은 별도 저장'}catch(e){$('brandingStatus').textContent=e.message}finally{button.disabled=false}});
 function readBrandImage(file){return new Promise((resolve,reject)=>{if(!file||file.size>1000000){reject(Error('1MB 이하 PNG/JPEG 이미지를 선택하세요.'));return}const mime=/\.png$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':file.type;if(!['image/jpeg','image/png'].includes(mime)){reject(Error('PNG/JPEG만 등록할 수 있습니다.'));return}const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('이미지 읽기 실패'));reader.readAsDataURL(new Blob([file],{type:mime}))})}
 $('saveBranding').addEventListener('click',async()=>{$('saveBranding').disabled=true;$('brandingStatus').textContent='저장 중';try{const payload=Object.fromEntries(Object.entries(brandFields).map(([k,id])=>[k,$(id).value.trim()]));for(const [key,fileId,resetId] of [['logo','brandLogo','resetLogo'],['banner','brandBanner','resetBanner'],['footer','brandFooter','resetFooter']]){if($(resetId).checked&&$(fileId).files.length)throw Error('이미지 선택과 기본 복원을 동시에 지정할 수 없습니다.');if($(resetId).checked)payload[key]='';else if($(fileId).files.length)payload[key]=await readBrandImage($(fileId).files[0])}const res=await api('/api/branding/save',payload);brandingDirty=false;showBranding(res.branding);for(const id of ['brandLogo','brandBanner','brandFooter'])clearDrop(id);for(const id of ['resetLogo','resetBanner','resetFooter'])$(id).checked=false;$('brandingStatus').textContent='저장 완료 · 새 초안 출력에 적용'}catch(err){$('brandingStatus').textContent=err.message}finally{$('saveBranding').disabled=false}});
-$('openManagedFiles').addEventListener('click',async()=>{try{await api('/api/files/open',{});$('managedFilesStatus').textContent='관리 폴더 열기 요청 완료'}catch(e){$('managedFilesStatus').textContent=e.message}});
+$('openManagedFiles').addEventListener('click',async()=>{try{await api('/api/files/open',{});$('managedFilesStatus').textContent='탐색기 실행 요청 완료 · 창이 보이지 않으면 경로를 복사해 직접 열어 주세요.'}catch(e){$('managedFilesStatus').textContent=e.message}});
+$('copyManagedPath').addEventListener('click',async()=>{const path=$('managedFilesPath').textContent;try{await navigator.clipboard.writeText(path);$('managedFilesStatus').textContent='경로 복사 완료 · 탐색기 주소창에 붙여넣으세요.'}catch(e){const range=document.createRange();range.selectNodeContents($('managedFilesPath'));window.getSelection().removeAllRanges();window.getSelection().addRange(range);$('managedFilesStatus').textContent='경로 선택 완료 · Ctrl+C로 복사하세요.'}});
 async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)throw Error('설정 조회 실패');const j=await r.json();
  $('settingSources').innerHTML=j.sources.map(s=>'<div>'+esc(s.group==='mfds'?'식약처':'언론')+' · '+esc(s.key)+' <span class="muted">'+esc(s.url)+'</span></div>').join('');
  reviewGroups=j.review_groups||[];renderReviewGroups();showBranding(j.branding||{});
- $('managedFilesPath').textContent=j.managed_files?.root||'관리 경로 미확인';$('openManagedFiles').disabled=!j.managed_files?.can_open;
+ $('managedFilesPath').textContent=j.managed_files?.root||'관리 경로 미확인';$('openManagedFiles').disabled=!j.managed_files?.can_open;$('copyManagedPath').disabled=!j.managed_files?.root;
  aiReady=Boolean(j.ai_api_available);
  $('runAi').disabled=!aiReady||db?.edition?.status==='confirmed'||lastAi==='running';
  $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정';
