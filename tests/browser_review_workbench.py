@@ -73,32 +73,34 @@ window.fetch=async function(path,opts){
 mock=mock.replace('DATA',json.dumps(state,ensure_ascii=False)).replace('SOURCES',json.dumps(sources,ensure_ascii=False)).replace('SETTINGS',json.dumps(settings,ensure_ascii=False))
 html=html.replace("<script>\n'use strict';",mock+"<script>\n'use strict';")
 with sync_playwright() as pl:
-    browser=pl.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    browser=pl.chromium.launch(headless=True,args=['--no-sandbox'])
     page=browser.new_page(viewport={'width':1400,'height':900});errs=[];page.on('pageerror',lambda e:errs.append(str(e)))
     page.set_content(html,wait_until='load')
-    page.wait_for_function("document.querySelector('#dashCount').textContent.includes('208')",timeout=9000)
+    page.wait_for_function("document.querySelector('#stats').textContent.includes('208')",timeout=9000)
     page.locator('[data-view="edit"]').click();page.wait_for_selector('.queue-row')
     assert '추천 후보' in page.locator('[data-queue="recommended"]').inner_text()
     assert page.locator('.queue-row').count()==12
     assert page.locator('#askQuestion').count()==0
     assert page.locator('#sendQuestion').count()==0
-    assert '날짜 미확인 0건' in page.locator('#editionScope').inner_text()
+    assert page.locator('#editionScope').is_hidden()
     page.screenshot(path=str(ROOT/'output'/'review_workbench_desktop.png'),full_page=True)
     page.locator('#selectVisible').check()
     assert page.locator('#selectedCount').inner_text()=='선택 12건'
     page.locator('#nextItems').click()
     page.locator('.queue-row:first-child [data-queue-check]').check()
-    assert page.locator('#selectedCount').inner_text()=='선택 13건'
+    assert page.locator('#selectedCount').inner_text()=='선택 1건'
     page.locator('#bulkIncludeSelected').click()
     assert page.evaluate("window.__calls.at(-1).body.mode")=='set_inclusion'
-    assert page.evaluate("window.__calls.at(-1).body.ids.length")==13
+    assert page.evaluate("window.__calls.at(-1).body.ids.length")==1
     assert page.locator('#selectedCount').inner_text()=='선택 0건'
     page.locator('[data-queue="included"]').click()
-    assert page.locator('#queueTotal').inner_text()=='현재 조건 50건'  # 37 MFDS + 13 newly selected
+    assert page.locator('#queueTotal').inner_text()=='현재 조건 38건'  # 37 MFDS + 1 newly selected
     # Locate an included industry article regardless of page order and open it.
     page.locator('#group').select_option('industry')
     page.locator('.queue-open').first.click()
     assert '원본 기사' in page.locator('#detailPanel').inner_text()
+    assert page.locator('.detail-form').evaluate('(el) => !!(el.compareDocumentPosition(document.querySelector(".original-article")) & Node.DOCUMENT_POSITION_FOLLOWING)')
+    assert page.locator('#clearReviewSelection, #bulkApplySections, #applyRecommended').count()==0
     assert 'GPT 요약을 편집란으로 복사' in page.locator('#detailPanel').inner_text()
     assert page.locator('#detailSection').input_value()=='industry.unclassified'  # proposal is not silently approved
     page.locator('#applyAiSummary').click()
@@ -107,7 +109,7 @@ with sync_playwright() as pl:
     assert page.evaluate("window.__calls.at(-1).path")=='/api/decision'
     assert not errs,errs
     mobile=browser.new_page(viewport={'width':390,'height':844});mobileerrs=[];mobile.on('pageerror',lambda e:mobileerrs.append(str(e)))
-    mobile.set_content(html,wait_until='load');mobile.wait_for_function("document.querySelector('#dashCount').textContent.includes('208')")
+    mobile.set_content(html,wait_until='load');mobile.wait_for_function("document.querySelector('#stats').textContent.includes('208')")
     mobile.locator('[data-view="edit"]').click();mobile.wait_for_selector('.queue-row')
     mobile.screenshot(path=str(ROOT/'output'/'review_workbench_mobile.png'),full_page=True)
     assert mobile.locator('.queue-row').count()==12
@@ -135,7 +137,7 @@ with sync_playwright() as pl:
     assert not mobileerrs,mobileerrs
     medium=browser.new_page(viewport={'width':974,'height':880});mediumerrs=[];medium.on('pageerror',lambda e:mediumerrs.append(str(e)))
     medium.set_content(html,wait_until='load')
-    medium.wait_for_function("document.querySelector('#dashCount').textContent.includes('208')")
+    medium.wait_for_function("document.querySelector('#stats').textContent.includes('208')")
     medium.locator('[data-view=edit]').click()
     medium.locator('.queue-open').first.click()
     assert medium.evaluate("getComputedStyle(document.querySelector('#detailPanel')).position")=='fixed'
@@ -143,4 +145,4 @@ with sync_playwright() as pl:
     medium.screenshot(path=str(ROOT/'output'/'review_drawer_974_v06.png'))
     assert not mediumerrs,mediumerrs
     browser.close()
-print('WORKBENCH SMOKE PASS: 208 candidates, queue tabs, multi-page select, 13 bulk actions, no silent AI approval, edit, desktop+mobile')
+print('WORKBENCH SMOKE PASS: 208 candidates, queue tabs, page-scoped selection, single bulk action, no silent AI approval, edit, desktop+mobile')

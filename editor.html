@@ -7,22 +7,22 @@
 <button class="nav-item" data-view="edit">≡ 기사 검토·편집</button>
 <button class="nav-item" data-view="preview">▤ 미리보기·확정</button>
 <button class="nav-item" data-view="settings">⚙ 환경설정</button>
-</aside><div class="app-main"><header><h1 id="pageHeading">뉴스레터 도서관</h1><small id="headerEdition">회차를 불러오는 중</small>
+</aside><div class="app-main"><header><h1 id="pageHeading">뉴스레터 도서관</h1><small id="headerEdition" hidden></small>
 <div class="edition-context"><button id="openEditionDialog" type="button" hidden>회차 변경</button></div></header>
 <dialog id="editionDialog" aria-labelledby="editionDialogTitle" class="edition-dialog"><h2 id="editionDialogTitle">작업 회차 변경</h2>
-<p class="muted">초안은 편집 가능하고, 확정된 회차는 읽기 전용이야. 보관함 열람만으로 작업 회차가 바뀌지는 않아.</p>
+
 <label for="editionPicker">이동할 회차</label><select id="editionPicker"></select>
 <div class="actions"><button id="applyEditionSwitch" class="primary">회차 열기</button><button id="closeEditionDialog">취소</button></div></dialog>
 <main><section class="view-panel" id="view-dashboard">
 <section class="surface library-surface" aria-label="뉴스레터 도서관">
- <div class="library-title"><div><h3>뉴스레터 도서관</h3><p class="muted">확정된 뉴스레터를 조회해. 보관함에서 보는 것만으로 현재 작업 회차가 바뀌지는 않아.</p></div></div>
+ 
  <div class="library-filters"><label>상태 <select id="libraryStatus"><option value="confirmed">확정본</option><option value="draft">작업 중인 초안</option><option value="all">전체 회차</option></select></label>
  <label>찾기 <input id="librarySearch" type="search" placeholder="제목 · 회차번호 · 날짜" maxlength="100"></label><button id="librarySearchButton">검색</button></div>
  <p class="status" id="libraryMessage" role="status"></p><div id="libraryGrid" class="library-grid"></div>
  <div class="library-pagination"><button id="libraryPrev">이전</button><span id="libraryPageInfo" class="status"></span><button id="libraryNext">다음</button></div>
 </section></section>
-<section class="view-panel" id="view-collect" hidden><h2 class="view-title">자료 수집</h2>
-<p class="view-subtitle">수집 기간과 새 회차를 지정한 뒤, 사이트를 선택해 자료를 수집해.</p>
+<section class="view-panel" id="view-collect" hidden>
+
 <section class="surface issue-setup" aria-label="수집 회차 만들기">
  <h3>회차 정보 · 수집 기간</h3>
  <div class="collector-grid issue-fields">
@@ -44,23 +44,23 @@
  <div class="actions collection-actions"><button class="primary" type="button" id="startCollection">선택한 사이트 수집 시작</button><span id="collectionState" class="status" role="status" aria-live="polite">대기</span></div>
  <progress id="collectionProgress" value="0" max="1" aria-label="사이트별 수집 진행률"></progress>
  <div id="collectionResults" class="results collection-problems" aria-label="0건 또는 수집 오류" hidden></div>
- <p class="hint collect-coverage-hint">수집 작업이 끝나도 전체 자료 확보 여부는 별도 검증이 필요해.</p>
+ 
 </section><details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="collectionSummary" class="hint"></div><div id="runs" class="hint"></div></details></section>
 <section class="view-panel" id="view-edit" hidden>
   <div class="review-heading">
-    <div><h2 class="view-title">기사 검토 작업대</h2><p class="view-subtitle">추천을 먼저 확인하고, 필요한 기사만 추가 선택한 뒤 수록 목록에서 최종 편집해.</p></div>
+    <div></div>
     <div class="review-shortcuts"><button type="button" data-go="settings">추천 그룹 설정</button><button type="button" class="primary" data-go="preview">출력 미리보기</button></div>
   </div>
-  <div class="notice" id="editionScope">회차에 연결된 기사만 조회해. 미확인 날짜와 수집 범위를 확인해.</div>
+  <div class="notice" id="editionScope"></div>
   <section class="surface review-ai" aria-label="기사 분석">
-    <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3><p class="muted">원본 제목·메타데이터를 분석해 추천과 분류를 제안해. 결과는 수록 확정이 아니야.</p></div><button id="runAi" class="primary">이번 회차 언론기사 GPT 분석</button></div>
+    <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3></div><button id="runAi" class="primary">이번 회차 언론기사 GPT 분석</button></div>
     <p id="aiJobStatus" class="status" role="status" aria-live="polite"></p>
-    <details class="secondary-tools"><summary>GPT API 없이 분석 결과 사용하기 (JSON)</summary><div class="actions"><a class="button" href="/export/ai" download>분석 후보 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택"><button id="importAi">GPT 결과 가져오기</button></div></details>
+    <details class="secondary-tools"><summary>GPT 결과 JSON 가져오기</summary><div class="actions"><a class="button" href="/export/ai" download>분석 후보 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택"><button id="importAi">GPT 결과 가져오기</button></div></details>
   </section>
   <section class="surface review-queue" aria-label="기사 선택 및 검토">
-    <div class="review-step-title"><div><h3>2. 추천 및 검토 대기열</h3><p class="muted">추천 외 기사도 ‘검토 필요’·‘그 외’·‘전체’에서 찾아 수록할 수 있어.</p></div></div>
+    <div class="review-step-title"><div><h3>2. 추천 및 검토 대기열</h3></div></div>
     <div class="stats" id="stats" aria-label="전체 회차 집계"></div>
-    <p class="hint">탭 건수는 전체 회차 기준이며, 아래 필터는 현재 목록에 함께 적용돼.</p>
+    
      <div id="queueTabs" class="queue-tabs" role="tablist" aria-label="기사 검토 상태">
       <button class="queue-tab" data-queue="recommended" role="tab" aria-selected="true">추천 후보</button>
       <button class="queue-tab" data-queue="review" role="tab" aria-selected="false">추가 검토</button>
@@ -75,14 +75,12 @@
        <label for="reviewGroup">추천 그룹 <select id="reviewGroup"><option value="all">전체 그룹</option></select></label>
     </div>
     <div class="selection-bar">
-      <label><input id="selectVisible" type="checkbox"> 현재 페이지 언론기사 선택</label>
+      <label><input id="selectVisible" type="checkbox"> 현재 페이지 선택</label>
       <span id="selectedCount" class="status" aria-live="polite">선택 0건</span>
-      <button id="bulkIncludeSelected" class="primary">선택 기사 수록</button>
-      <button id="bulkExcludeSelected">선택 기사 제외</button>
-      <button id="bulkApplySections">선택 기사 추천 분야 적용</button>
-      <button id="clearReviewSelection">선택 초기화</button>
+      <div class="inclusion-toggle" role="group" aria-label="선택 기사 수록 여부"><button id="bulkIncludeSelected" type="button" aria-pressed="false">수록</button><button id="bulkExcludeSelected" type="button" aria-pressed="false">제외</button></div>
+      
     </div>
-    <div class="recommend-bar"><button id="applyRecommended">이 분야 추천 후보 일괄 수록</button><p class="muted">이 버튼은 현재 분야의 모든 추천 후보에 적용돼. ‘선택 기사’ 버튼과 적용 범위가 달라.</p></div>
+    
     <p id="industryFeedback" class="status" aria-live="polite"></p>
     <div class="review-layout">
       <section class="queue-list-pane" aria-label="기사 후보 목록">
@@ -94,37 +92,37 @@
         </div>
       </section>
       <div id="detailBackdrop" class="detail-backdrop" hidden></div>
-      <aside id="detailPanel" class="review-detail" aria-label="선택 기사 상세 편집" aria-live="polite"><div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>왼쪽의 기사를 선택하면 원본·추천·최종 수록 내용이 여기에 나타나.</p></div></aside>
+      <aside id="detailPanel" class="review-detail" aria-label="선택 기사 상세 편집" aria-live="polite"><div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>기사를 선택하세요.</p></div></aside>
     </div>
     <p id="feedback" class="status" role="status"></p>
   </section>
   <details class="surface top-review" aria-label="주요 뉴스 선정"><summary>주요 뉴스 TOP 선정·순서 관리 (선택한 기사만)</summary>
-    <div class="review-step-title"><div><h3>4. 주요 뉴스 카드 선정</h3><p class="muted">본문 수록과 독립적이야. 순위 기준 상위 후보만 출력하고 나머지는 예비 후보로 유지해.</p></div><div><label for="target" class="small-label">출력 건수</label><input type="number" min="0" max="100" id="target" style="width:75px"><button id="saveTarget">적용</button></div></div>
+    <div class="review-step-title"><div><h3>4. 주요 뉴스 카드 선정</h3></div><div><label for="target" class="small-label">출력 건수</label><input type="number" min="0" max="100" id="target" style="width:75px"><button id="saveTarget">적용</button></div></div>
     <p id="targetHint" class="hint"></p><div id="top"></div>
    </details>
 
 </section>
-<section class="view-panel" id="view-preview" hidden><h2 class="view-title">뉴스레터 미리보기·확정</h2><p class="view-subtitle">최종 확정 시 현재 기사 선택과 HTML을 보존해. 확정 후에는 수정할 수 없으며, 메일 발송은 수행하지 않아.</p>
-<div class="surface airy"><div class="template-choice"><label for="templateChoice">뉴스레터 출력 템플릿</label> <select id="templateChoice"><option value="classic">템플릿 1 · 892호 기존 형식</option><option value="outlook_cards">템플릿 2 · Outlook 뉴스카드</option></select><p class="status" id="templateMessage" role="status">회차별로 저장되며 확정 이후 변경할 수 없어.</p></div><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
+<section class="view-panel" id="view-preview" hidden>
+<div class="surface airy"><div class="template-choice"><label for="templateChoice">뉴스레터 출력 템플릿</label> <select id="templateChoice"><option value="classic">템플릿 1 · 892호 기존 형식</option><option value="outlook_cards">템플릿 2 · Outlook 뉴스카드</option></select><p class="status" id="templateMessage" role="status"></p></div><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
 <iframe id="newsletterPreview" class="iframe-preview" title="뉴스레터 출력 미리보기" sandbox="allow-same-origin"></iframe></div>
 <div class="surface airy" style="margin-top:16px"><h3>회차 최종 확정</h3><div class="form-row"><label>회차 번호 (선택)<input id="issueNumber" placeholder="예: 893"></label><label>확정 담당자<input id="confirmedBy" placeholder="담당자 이름"></label></div>
 <label class="checkline" style="margin:14px 0"><input id="finalAck" type="checkbox">수집 상태·원문 검증·수록 내용과 로고/연락처 미연결 항목을 검토했어</label>
 <div class="actions"><button id="confirmIssue" class="primary">이 회차 최종 확정</button></div><p id="confirmMessage" class="status" role="status"></p></div></section>
-<section class="view-panel" id="view-settings" hidden><h2 class="view-title">환경설정</h2><p class="view-subtitle">추천 그룹을 추가·수정·삭제하고, 각 그룹의 키워드와 발행 분야를 지정해. 최종 수록 여부는 기사 검토에서 사람이 결정해.</p>
+<section class="view-panel" id="view-settings" hidden>
 <section class="surface airy" aria-label="추천 그룹 설정"><h3>추천 그룹 관리</h3>
-<p class="muted">예: 보험·약가 → 정책, ADC 연구 → 연구개발. 추천 그룹은 후보 분류용이며 뉴스레터의 4개 발행 섹션은 그대로 유지해.</p>
+
 <div id="reviewGroupList" class="review-group-settings" aria-label="등록된 추천 그룹"></div>
 <div class="settings-edit-card"><h4 id="reviewGroupFormHeading">추천 그룹 추가</h4>
 <div class="group-form-grid"><label>그룹명<input id="reviewGroupName" type="text" maxlength="40" placeholder="예: 보험·약가"></label>
 <label>발행 분야<select id="reviewGroupSection"><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구개발</option></select></label></div>
 <label class="group-keywords">판별 키워드 (쉼표 또는 줄바꿈으로 구분)<textarea id="reviewGroupTerms" placeholder="약가, 보험등재, 급여"></textarea></label>
-<label class="checkline"><input type="checkbox" id="reviewGroupRecommend" checked> 키워드 일치 시 수록 추천 후보로 분류 (자동 수록하지 않음)</label>
+<label class="checkline"><input type="checkbox" id="reviewGroupRecommend" checked> 일치 시 수록 추천</label>
 <div class="actions"><button class="primary" id="saveReviewGroup">그룹 저장</button><button id="cancelReviewGroup">입력 초기화</button></div></div>
 <div class="actions"><button id="refreshReviewGroups">현재 초안에 분류 제안 다시 계산</button><span id="reviewGroupStatus" class="status" role="status"></span></div>
-<p class="muted">그룹 변경은 기존 기사와 담당자 선택을 삭제하지 않아. 다시 계산을 누르면 미확정 회차의 규칙 제안만 갱신해.</p></section>
+</section>
 <section class="surface airy" style="margin-top:16px"><h3>수집원 및 API 상태</h3><div id="settingSources" class="settings-details"></div>
-<p class="muted">수집원 URL과 추가 점수 설정은 현재 YAML 파일에서 관리해.</p><p id="settingAi" class="status"></p></section></section>
-<p class="footer">로컬 전용 · SQLite 자동 저장 · 원본 보존 · 외부 메일 발송 없음</p></main></div></div>
+<p id="settingAi" class="status"></p></section></section>
+</main></div></div>
 <script>
 'use strict';const TOKEN='__LOCAL_TOKEN__';let db=null;let reviewGroups=[],editingReviewGroupId=null;let queueKind="recommended", detailItemId=null, detailDirty=false, aiReady=false;const selectedIds=new Set();const $=id=>document.getElementById(id);const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sec=['mfds.guides','mfds.regulations','mfds.press','mfds.notices','industry.policy','industry.market','industry.global','industry.rnd','industry.unclassified','company.news'];
@@ -153,8 +151,8 @@ async function loadLibrary(){
    const open=e.status==='confirmed'?'<a class="button primary" target="_blank" rel="noopener noreferrer" href="'+htmlUrl+'">확정본 보기</a><a class="button" href="'+htmlUrl+'&download=1">HTML 받기</a>':
        '<button type="button" data-resume-edition="'+esc(e.id)+'">이어서 편집</button>';
    return '<article class="library-card"><div class="library-cover"><span class="library-icon">▤</span><strong>'+caption+'</strong><small>'+esc(badge)+'</small></div>'+
-    '<div class="library-card-info"><h4>'+esc(e.title)+'</h4><p class="muted">'+esc(e.period_start)+' ~ '+esc(e.period_end)+'</p>'+
-    '<p class="muted">'+(e.confirmed_at?'확정 '+esc(e.confirmed_at):'초안')+' · 후보 '+Number(e.candidates||0)+'건 · 수록 '+Number(e.included||0)+'건</p>'+
+    '<div class="library-card-info"><h4>'+esc(e.title)+'</h4>'+
+    ''+
     '<div class="actions">'+open+'</div></div></article>';
   }).join('')||'<p class="muted library-empty">해당 조건의 뉴스레터가 없어.</p>';
  }catch(err){$('libraryMessage').textContent='도서관 조회 오류: '+err.message;$('libraryGrid').innerHTML=''}
@@ -303,14 +301,14 @@ function renderCardGallery(view){
  const info=flag?' · 제목 확인 필요':(!x.published_at?' · 날짜 확인 필요':'');
  $('featuredArticle').innerHTML='<article class="candidate-card" data-id="'+esc(x.id)+'">'+
   '<div class="candidate-card-top"><span class="pill">'+esc(sourceLabel[x.source_key]||x.source_key)+'</span><span class="tag">'+(x.include_detail?'수록 중':isSuggested(x)?'추천 후보':'검토 필요')+'</span></div>'+
-  '<h4>'+esc(x.title)+'</h4><p class="muted">'+esc(x.published_at||'날짜 미확인')+esc(info)+'</p>'+
+  '<h4>'+esc(x.title)+'</h4>'+
   '<p class="candidate-card-reason">'+esc(hasAi(x)?x.ai_reason||'GPT 분석 근거 없음':x.rule_reason||'추천 근거 없음')+'</p>'+
   '<div class="actions">'+(x.source_group==='industry'?'<label><input type="checkbox" data-card-select="'+esc(x.id)+'" '+(selectedIds.has(x.id)?'checked':'')+'> 일괄 선택</label>':'')+
   '<button type="button" class="primary" data-open-id="'+esc(x.id)+'">상세 검토</button>'+
   (safeLink?'<a class="button" href="'+esc(safeLink)+'" rel="noopener noreferrer" target="_blank">원문 보기</a>':'')+'</div></article>';
 }
 function openCandidate(id){if(detailItemId!==id&&detailDirty&&!confirm('저장하지 않은 편집 내용을 버리고 다른 기사를 열까?'))return;
- detailDirty=false;detailItemId=id;render();if(window.matchMedia('(max-width: 1060px)').matches)$('closeDetail')?.focus()}
+ detailDirty=false;detailItemId=id;render();$('detailPanel').scrollTop=0;if(window.matchMedia('(max-width: 1060px)').matches)$('closeDetail')?.focus()}
 $('viewModeToggle').addEventListener('click',()=>{cardMode=!cardMode;cardIndex=0;render()});
 $('cardPrev').addEventListener('click',()=>{cardIndex=Math.max(0,cardIndex-1);render()});
 $('cardNext').addEventListener('click',()=>{cardIndex++;render()});
@@ -323,7 +321,7 @@ function render(){
  for(const id of [...selectedIds])if(!all.some(x=>x.id===id&&x.source_group==='industry'))selectedIds.delete(id);
  $('stats').innerHTML='<div class="stat"><b>'+all.length+'</b><small>전체 자료</small></div><div class="stat"><b>'+all.filter(x=>x.include_detail).length+'</b><small>수록 자료</small></div><div class="stat"><b>'+top.length+'</b><small>TOP 후보</small></div>';
  $('collectionSummary').textContent='식약처 연결 자료 '+all.filter(x=>x.source_group==='mfds').length+'건 · 수집 기록 '+(db.run_total??db.runs.length)+'회';
- $('editionScope').textContent='현재 회차: '+db.edition.title+' · '+db.edition.period_start+' ~ '+db.edition.period_end+' · 연결 '+all.length+'건 · 날짜 미확인 '+(db.undated_count||0)+'건 · 기간 밖 '+(db.out_of_period_count||0)+'건. 수집 원본 전수 확인 결과는 아니야.';
+ $('editionScope').textContent='날짜 미확인 '+(db.undated_count||0)+'건 · 기간 밖 '+(db.out_of_period_count||0)+'건';$('editionScope').hidden=!(db.undated_count||db.out_of_period_count);
  $('target').value=db.edition.top_target;
  const outputIds=new Set(db.top_output_ids||[]), outputKnown=Array.isArray(db.top_output_ids);
  $('targetHint').textContent='후보 '+top.length+'건 · 실제 출력 '+outputIds.size+'건 · 예비 '+(top.length-outputIds.size)+'건 / 출력 상한 '+db.edition.top_target+'건';
@@ -355,12 +353,19 @@ function render(){
     '<div class="queue-chips"><span class="tag '+(x.include_detail?'selected':'')+'">'+scopeLabel+'</span><span class="tag">'+suggestion+'</span>'+((x.verification==='needs_title_review'||x.title.length>190)?'<span class="tag warn">제목 확인</span>':'')+'</div></article>'
  }).join('')||'<p class="empty-results">조건에 맞는 기사가 없어. 다른 탭이나 전체 목록을 확인해.</p>';
  renderCardGallery(view);
- $('selectVisible').checked=currentPageRows.some(x=>x.source_group==='industry')&&currentPageRows.filter(x=>x.source_group==='industry').every(x=>selectedIds.has(x.id));
+ const pageSelectable=currentPageRows.filter(x=>x.source_group==='industry');
+ $('selectVisible').checked=pageSelectable.length>0&&pageSelectable.every(x=>selectedIds.has(x.id));
+ $('selectVisible').indeterminate=!$('selectVisible').checked&&pageSelectable.some(x=>selectedIds.has(x.id));
  $('selectVisible').disabled=db.edition.status==='confirmed'||!currentPageRows.some(x=>x.source_group==='industry');
  $('selectedCount').textContent='선택 '+selectedIds.size+'건';
  const locked=db.edition.status==='confirmed';
- for(const id of ['runAi','importAi','bulkIncludeSelected','bulkExcludeSelected','bulkApplySections','applyRecommended','saveTarget'])$(id).disabled=locked;
+ for(const id of ['runAi','importAi','bulkIncludeSelected','bulkExcludeSelected','saveTarget'])$(id).disabled=locked;
  $('target').disabled=locked;
+ $('bulkIncludeSelected').disabled=locked||!selectedIds.size;
+ $('bulkExcludeSelected').disabled=locked||!selectedIds.size;
+ const chosen=all.filter(x=>selectedIds.has(x.id));
+ $('bulkIncludeSelected').setAttribute('aria-pressed',String(chosen.length>0&&chosen.every(x=>x.include_detail)));
+ $('bulkExcludeSelected').setAttribute('aria-pressed',String(chosen.length>0&&chosen.every(x=>!x.include_detail)));
  $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+' <small>'+ (!outputKnown?'확정 당시 후보':outputIds.has(x.id)?'출력':'예비')+'</small></span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0||locked?'disabled':'')+' aria-label="위로 이동">↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1||locked?'disabled':'')+' aria-label="아래로 이동">↓</button><button data-remove-top="1" data-id="'+esc(x.id)+'" '+(locked?'disabled':'')+' aria-label="TOP 후보 해제">×</button></div>').join('')||'<p class="status">담당자가 선정한 TOP 기사가 없어.</p>';
  $('runs').innerHTML=db.runs.slice(0,20).map(r=>'<div style="margin:6px 0">'+esc(r.source_key)+' · '+esc(r.status)+' · '+r.records_seen+'건</div>').join('')||'이 회차에 귀속된 수집 이력이 없어. 기존 기록은 임의로 귀속하지 않았어.';
  renderDetail();updateDashboard();
@@ -375,25 +380,23 @@ function renderDetail(){
  const draft=detailDirty&&target.dataset.itemId===detailItemId&&$('detailTitle')&&$('detailSummary')?
        {title:$('detailTitle').value,summary:$('detailSummary').value}:null;
  target.dataset.itemId=x?.id||'';
- if(!x){target.innerHTML='<div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>왼쪽에서 기사를 열면 원본·분류 제안·최종 편집 내용이 나타나.</p></div>';return;}
+ if(!x){target.innerHTML='<div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>기사를 선택하세요.</p></div>';return;}
  const confirmed=db.edition.status==='confirmed',locked=confirmed?'disabled':'';
  const proposed=candidateSection(x),actual=x.section_override||x.section;
  const attrs=sectionSelectOptions(x).map(key=>'<option value="'+esc(key)+'" '+(key===actual?'selected':'')+'>'+esc(sectionLabel[key]||key)+'</option>').join('');
  const suggestedSummary=hasAi(x)?x.ai_summary||'':null;
  target.innerHTML='<div class="detail-content"><div class="detail-title"><h3>3. 기사 상세 편집</h3><button id="closeDetail" type="button" aria-label="상세 편집 닫기">닫기</button></div>'+
-  '<p class="small-label">원본 기사</p>'+(x.verification==='needs_title_review'?'<p class="notice">제목 추출 확인 필요 · 원문 링크에서 정확한 제목을 확인해.</p>':'')+'<p class="source-title">'+esc(x.title)+'</p><p class="muted">'+esc(x.published_at||'날짜 미확인')+' · '+esc(sourceLabel[x.source_key]||x.source_key)+'</p><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">원문 확인</a>'+
-  '<div class="proposal-box"><p class="small-label">분석 제안 (승인 전)</p><p><strong>추천 그룹:</strong> '+esc(groupLabel(x.rule_group_id))+' · <strong>발행 분야:</strong> '+esc(sectionLabel[proposed]||proposed)+' · <strong>수록 추천:</strong> '+(isSuggested(x)?'추천':'미추천')+'</p><p>'+esc(hasAi(x)?x.ai_reason||'':x.rule_reason||'규칙 추천 없음')+'</p>'+(suggestedSummary?'<p><strong>요약 제안:</strong> '+esc(suggestedSummary)+'</p>':'')+'</div>'+
-  '<div class="detail-form"><h4>최종 편집·발행 내용</h4><label class="checkline"><input id="detailInclude" type="checkbox" '+(x.include_detail?'checked':'')+(x.mandatory||confirmed?' disabled':'')+'> 본문에 수록</label><label class="checkline"><input id="detailTop" type="checkbox" '+(x.top_selected?'checked':'')+locked+'> 주요 뉴스 카드로 선정 (본문과 독립)</label>'+
-  '<label class="field" for="detailSection">발행 섹션 (제안과 별개)</label><select id="detailSection" '+locked+'>'+attrs+'</select>'+
-  '<label class="field" for="detailTitle">발행 제목 (원본 유지 시 수정하지 않음)</label><input id="detailTitle" '+locked+' value="'+esc(x.title_override??x.title)+'" maxlength="2000">'+
-  '<label class="field" for="detailSummary">발행 요약 (미입력 시 원본 요약, GPT 요약은 자동 사용 안 함)</label><textarea id="detailSummary" '+locked+' maxlength="2000">'+esc(x.summary_override??x.summary_source??'')+'</textarea>'+
-  '<div id="detailSummaryLength" class="small-label"></div><div class="actions">'+(suggestedSummary&&!confirmed?'<button id="applyAiSummary">GPT 요약을 편집란으로 복사</button>':'')+'<button id="saveDetailText" class="primary" '+locked+'>발행 제목·요약 저장</button></div><p class="muted" id="detailStatus"></p></div></div>';
+  '<div class="detail-form"><h4>최종 편집·발행 내용</h4><label class="checkline"><input id="detailInclude" type="checkbox" '+(x.include_detail?'checked':'')+(x.mandatory||confirmed?' disabled':'')+'> 본문에 수록</label><label class="checkline"><input id="detailTop" type="checkbox" '+(x.top_selected?'checked':'')+locked+'> TOP 후보</label>'+
+  '<label class="field" for="detailSection">발행 분야</label><select id="detailSection" '+locked+'>'+attrs+'</select>'+
+  '<label class="field" for="detailTitle">발행 제목</label><input id="detailTitle" '+locked+' value="'+esc(x.title_override??x.title)+'" maxlength="2000">'+
+  '<label class="field" for="detailSummary">발행 요약</label><textarea id="detailSummary" '+locked+' maxlength="2000">'+esc(x.summary_override??x.summary_source??'')+'</textarea>'+
+  '<div id="detailSummaryLength" class="small-label"></div><div class="actions">'+(suggestedSummary&&!confirmed?'<button id="applyAiSummary">GPT 요약을 편집란으로 복사</button>':'')+'<button id="saveDetailText" class="primary" '+locked+'>저장</button></div><p class="muted" id="detailStatus"></p></div>'+ '<div class="proposal-box"><p class="small-label">분석 제안 (승인 전)</p><p><strong>추천 그룹:</strong> '+esc(groupLabel(x.rule_group_id))+' · <strong>발행 분야:</strong> '+esc(sectionLabel[proposed]||proposed)+' · <strong>수록 추천:</strong> '+(isSuggested(x)?'추천':'미추천')+'</p><p>'+esc(hasAi(x)?x.ai_reason||'':x.rule_reason||'규칙 추천 없음')+'</p>'+(suggestedSummary?'<p><strong>요약 제안:</strong> '+esc(suggestedSummary)+'</p>':'')+'</div>' + '<section class="original-article">'+ '<p class="small-label">원본 기사</p>'+(x.verification==='needs_title_review'?'<p class="notice">제목 추출 확인 필요 · 원문 링크에서 정확한 제목을 확인해.</p>':'')+'<p class="source-title">'+esc(x.title)+'</p><p class="muted">'+esc(x.published_at||'날짜 미확인')+' · '+esc(sourceLabel[x.source_key]||x.source_key)+'</p><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">원문 확인</a>' + '</section></div>';
  if(draft){$('detailTitle').value=draft.title;$('detailSummary').value=draft.summary;}
  $('detailTitle').addEventListener('input',()=>{detailDirty=true});
- const counter=()=>{const n=$('detailSummary').value.length;$('detailSummaryLength').textContent=n+'자 · 권장 220자 이내'+(n>220?' (요약 검토 필요)':'')};counter();$('detailSummary').addEventListener('input',()=>{detailDirty=true;counter()});
+ const counter=()=>{const n=$('detailSummary').value.length;$('detailSummaryLength').textContent=n+'/220자'+(n>220?' (권장 초과)':'')};counter();$('detailSummary').addEventListener('input',()=>{detailDirty=true;counter()});
  $('closeDetail').addEventListener('click',()=>{if(detailDirty&&!confirm('저장하지 않은 편집 내용을 닫을까?'))return;const oldId=detailItemId;detailDirty=false;detailItemId=null;render();[...document.querySelectorAll('[data-open-id]')].find(el=>el.dataset.openId===oldId)?.focus()});
  if(confirmed)return;
- if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;counter();$('detailStatus').textContent='GPT 요약을 복사했어. 확인 후 저장을 눌러야 반영돼.'});
+ if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;detailDirty=true;counter();$('detailStatus').textContent='GPT 요약을 복사했어. 확인 후 저장을 눌러야 반영돼.'});
  $('detailInclude').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{include_detail:e.target.checked}})));
  $('detailTop').addEventListener('change',e=>{const ids=ordered().map(y=>y.id).filter(id=>id!==x.id);if(e.target.checked)ids.push(x.id);act(()=>api('/api/top-order',{ids}))});
  $('detailSection').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{section_override:e.target.value}})));
@@ -414,8 +417,6 @@ async function bulkSelected(mode,value){
 }
 $('bulkIncludeSelected').addEventListener('click',()=>bulkSelected('set_inclusion',true));
 $('bulkExcludeSelected').addEventListener('click',()=>bulkSelected('set_inclusion',false));
-$('bulkApplySections').addEventListener('click',()=>bulkSelected('apply_sections'));
-$('clearReviewSelection').addEventListener('click',()=>{selectedIds.clear();render()});
 $('selectVisible').addEventListener('change',e=>{for(const x of currentPageRows.filter(x=>x.source_group==='industry')){if(e.target.checked)selectedIds.add(x.id);else selectedIds.delete(x.id)}render()});
 $('items').addEventListener('change',e=>{if(!e.target.matches('[data-queue-check]'))return;const id=e.target.closest('[data-id]').dataset.id;if(e.target.checked)selectedIds.add(id);else selectedIds.delete(id);render()});
 $('items').addEventListener('click',e=>{const btn=e.target.closest('[data-open-id]');if(btn)openCandidate(btn.dataset.openId)});
@@ -431,40 +432,34 @@ document.addEventListener('keydown',e=>{
   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
  }
 });
-$('queueTabs').addEventListener('click',e=>{const btn=e.target.closest('[data-queue]');if(!btn)return;queueKind=btn.dataset.queue;pageIndex=0;render()});
-$('applyRecommended').addEventListener('click',async()=>{
- const ids=scopeIndustry().filter(isSuggested).map(x=>x.id);if(!ids.length){$('industryFeedback').textContent='현재 분야에 추천 후보가 없어.';return}
- if(!confirm('현재 분야의 추천 후보 '+ids.length+'건을 일괄 수록하고 추천 섹션도 함께 승인할까? 기존 개별 편집은 보호해.'))return;
- try{const out=await api('/api/industry/bulk',{mode:'apply_recommended',ids});$('industryFeedback').textContent='추천 수록 '+out.updated+'건 · 기존 편집 보호 '+out.protected+'건';await load()}
- catch(e){$('industryFeedback').textContent=e.message}
-});
+$('queueTabs').addEventListener('click',e=>{const btn=e.target.closest('[data-queue]');if(!btn)return;queueKind=btn.dataset.queue;selectedIds.clear();pageIndex=0;render()});
 $('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move],[data-remove-top]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id);if(i<0)return;if(btn.hasAttribute('data-remove-top')){ids.splice(i,1);act(()=>api('/api/top-order',{ids}));return;}const j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
 $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Number($('target').value)})));
-[['search','input'],['group','change'],['industrySection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{pageIndex=0;render()}));
-$('prevItems').addEventListener('click',()=>{pageIndex=Math.max(0,pageIndex-1);render()});
-$('nextItems').addEventListener('click',()=>{pageIndex++;render()});
+[['search','input'],['group','change'],['industrySection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{selectedIds.clear();pageIndex=0;render()}));
+$('prevItems').addEventListener('click',()=>{selectedIds.clear();pageIndex=Math.max(0,pageIndex-1);render()});
+$('nextItems').addEventListener('click',()=>{selectedIds.clear();pageIndex++;render()});
 $('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').files[0];if(!file){$('industryFeedback').textContent='GPT 분석 결과 JSON을 먼저 선택해.';return}
  try{const result=JSON.parse(await file.text());if(!Array.isArray(result.items))throw Error('items 배열 필요');
   const r=await api('/api/ai/import',result);$('industryFeedback').textContent='GPT 제안 '+r.analysed+'건 등록 · 사용자가 수록 버튼을 눌러야 적용돼';await load();}
  catch(e){$('industryFeedback').textContent='GPT JSON 오류: '+e.message}
 });
-const titles={dashboard:'뉴스레터 도서관',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·최종 확정',settings:'환경설정'};
+const titles={dashboard:'뉴스레터 도서관',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·확정',settings:'환경설정'};
 function openView(name){if(!titles[name])return;
  if(name!=='edit'&&detailDirty&&!confirm('저장하지 않은 기사 편집 내용이 있어. 이동할까?'))return;
- if(name!=='edit')detailDirty=false;
+ if(name!=='edit'){detailDirty=false;detailItemId=null;document.body.classList.remove('drawer-open');$('detailBackdrop').hidden=true;$('detailPanel').classList.remove('is-open');}
  document.querySelectorAll('.view-panel').forEach(x=>x.hidden=x.id!=='view-'+name);
  document.querySelectorAll('.nav-item').forEach(x=>x.setAttribute('aria-current',x.dataset.view===name?'page':'false'));
  $('pageHeading').textContent=titles[name];
- $('headerEdition').hidden=name==='collect'||name==='settings';$('openEditionDialog').hidden=!(name==='edit'||name==='preview');if(name==='dashboard')loadLibrary();
+ $('headerEdition').hidden=true;$('openEditionDialog').hidden=!(name==='edit'||name==='preview');if(name==='dashboard')loadLibrary();
  if(name==='preview')refreshPreview();if(name==='settings')loadSettings().catch(e=>{$('settingAi').textContent=e.message});}
 document.querySelectorAll('[data-view],[data-go]').forEach(x=>x.addEventListener('click',()=>openView(x.dataset.view||x.dataset.go)));
 
 function updateDashboard(){if(!db)return;const ed=db.edition;
- $('headerEdition').textContent=ed.title+' · '+db.week_label+' · '+(ed.status==='confirmed'?'확정':'초안');
- $('finalState').textContent=ed.status==='confirmed'?'확정본 · '+(ed.confirmed_at||''):'미확정 미리보기 · 실제 발송되지 않아';
+ $('headerEdition').textContent='';
+ $('finalState').textContent=ed.status==='confirmed'?'확정본 · '+(ed.confirmed_at||''):'초안';
  $('templateChoice').value=ed.template_id||'classic';
  $('templateChoice').disabled=ed.status==='confirmed';
- $('templateMessage').textContent=ed.status==='confirmed'?'확정된 템플릿 · 변경 불가':'회차별 템플릿 · 미리보기와 HTML 다운로드에 적용';
+ $('templateMessage').textContent=ed.status==='confirmed'?'확정된 템플릿 · 변경 불가':'';
  $('confirmIssue').disabled=ed.status==='confirmed';$('runAi').disabled=ed.status==='confirmed'||!aiReady;
  $('startCollection').disabled=ed.status==='confirmed'||collectionRunning;updateSourceToggles();
  $('newEdition').disabled=collectionRunning;
@@ -489,7 +484,7 @@ $('confirmIssue').addEventListener('click',async()=>{if(!db||db.edition.status==
  $('confirmMessage').textContent='확정 완료 · SHA256 '+result.html_sha256.slice(0,12);await load();refreshPreview();}
  catch(e){$('confirmMessage').textContent='확정 오류: '+e.message;}});
 function renderReviewGroups(){
- $('reviewGroupList').innerHTML=reviewGroups.map(g=>'<div class="review-group-row"><div><strong>'+esc(g.label)+'</strong><small>발행 분야 '+esc(sectionLabel[g.target_section]||g.target_section)+' · '+(g.recommend?'추천 후보':'추가 검토')+'</small><p>'+esc(g.keywords.join(', '))+'</p></div><div class="actions"><button data-group-edit="'+esc(g.id)+'">수정</button><button data-group-delete="'+esc(g.id)+'">삭제</button></div></div>').join('')||'<p class="muted">등록된 추천 그룹이 없어. 아래에서 추가할 수 있어.</p>';
+ $('reviewGroupList').innerHTML=reviewGroups.map(g=>'<div class="review-group-row"><div><strong>'+esc(g.label)+'</strong><small>발행 분야 '+esc(sectionLabel[g.target_section]||g.target_section)+' · '+(g.recommend?'추천 후보':'추가 검토')+'</small><p>'+esc(g.keywords.join(', '))+'</p></div><div class="actions"><button data-group-edit="'+esc(g.id)+'">수정</button><button data-group-delete="'+esc(g.id)+'">삭제</button></div></div>').join('')||'';
  const chosen=$('reviewGroup').value;
  $('reviewGroup').innerHTML='<option value="all">전체 그룹</option>'+reviewGroups.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.label)+'</option>').join('');
  $('reviewGroup').value=reviewGroups.some(g=>g.id===chosen)?chosen:'all';
@@ -517,8 +512,8 @@ async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)thro
  reviewGroups=j.review_groups||[];renderReviewGroups();
  aiReady=Boolean(j.ai_api_available);
  $('runAi').disabled=!aiReady||db?.edition?.status==='confirmed';
- $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정 · 프로젝트 루트 .env에 설정 후 서버 재시작 또는 JSON 가져오기';
- if(!aiReady)$('aiJobStatus').textContent='API 연결 안 됨 · JSON 파일로 GPT 제안을 가져올 수 있어.';}
+ $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정';
+ if(!aiReady)$('aiJobStatus').textContent='API 미연결';}
 
 $('runAi').addEventListener('click',async()=>{const ids=scopeIndustry().map(x=>x.id);
  if(!ids.length){$('aiJobStatus').textContent='후보가 없어.';return}

@@ -34,11 +34,11 @@ window.fetch=async function(path, opts){
 mock=mock.replace('DATA',json.dumps(state,ensure_ascii=False)).replace('SOURCES',json.dumps(sources,ensure_ascii=False)).replace('SETTINGS',json.dumps(settings,ensure_ascii=False))
 html=html.replace('<script>\n\'use strict\';',mock+'<script>\n\'use strict\';')
 with sync_playwright() as pl:
- b=pl.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+ b=pl.chromium.launch(headless=True,args=['--no-sandbox'])
  p=b.new_page(viewport={'width':1380,'height':880});errors=[];p.on('pageerror',lambda e:errors.append(str(e)))
- p.set_content(html,wait_until='load');p.wait_for_function("document.querySelector('#dashCount').textContent.includes('170')",timeout=10000)
+ p.set_content(html,wait_until='load');p.wait_for_function("document.querySelector('#stats').textContent.includes('170')",timeout=10000)
  assert p.locator('.view-panel:visible').count()==1
- assert '170건' in p.locator('#dashCount').inner_text()
+ assert p.locator('#stats').text_content().find('170')>=0
  p.screenshot(path=str(root/'output'/'workspace_dashboard.png'),full_page=True)
  p.locator('[data-view="edit"]').click();p.wait_for_selector('.queue-row:visible')
  assert p.locator('.queue-row:visible').count()==12
@@ -50,7 +50,7 @@ with sync_playwright() as pl:
  assert not errors,errors
  print('SMOKE PASS desktop, navigation, 170 candidates/12 shown, filters, settings and preview: 0 JS errors')
  m=b.new_page(viewport={'width':390,'height':844});merrors=[];m.on('pageerror',lambda e:merrors.append(str(e)))
- m.set_content(html,wait_until='load');m.wait_for_function("document.querySelector('#dashCount').textContent.includes('170')",timeout=10000)
+ m.set_content(html,wait_until='load');m.wait_for_function("document.querySelector('#stats').textContent.includes('170')",timeout=10000)
  m.screenshot(path=str(root/'output'/'workspace_mobile.png'),full_page=True)
  assert not merrors,merrors
  b.close()
