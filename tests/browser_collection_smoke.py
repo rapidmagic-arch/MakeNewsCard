@@ -104,6 +104,7 @@ with sync_playwright() as pl:
     assert '회차 기간' in page.locator('#collectionResults').inner_text()
     page.locator('#colStart').fill('2026-11-16')
     page.locator('#colEnd').fill('2026-11-22')
+    page.locator('.collect-advanced summary').click()
     page.locator('#colMethod').select_option('rss')
     page.locator('#startCollection').click()
     assert 'RSS가 설정되지 않은 사이트' in page.locator('#collectionResults').inner_text()
