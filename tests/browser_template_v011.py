@@ -8,9 +8,17 @@ import requests
 from playwright.sync_api import sync_playwright, expect
 from meditip.db import connect,setup,ensure_edition,save_item
 from meditip.edition import prepare
-from meditip.server import serve
+import meditip.server as server
+from meditip.approval_live import parse_approval_page,approval_url
 
 ROOT=Path(__file__).resolve().parents[1]
+
+def offline_official(kind,start,end):
+    assert kind=='treatment'
+    content=(ROOT/'fixtures/approval_treatment_20261116_page1.html').read_bytes()
+    total,rows=parse_approval_page(content,kind,start,end)
+    return dict(total=total,pages=1,rows=rows,query_url=approval_url(kind,start,end))
+server.fetch_approval=offline_official
 with tempfile.TemporaryDirectory() as tmp:
     db=Path(tmp)/'browser.db'
     with connect(db) as con:
@@ -22,7 +30,7 @@ with tempfile.TemporaryDirectory() as tmp:
         con.commit();prepare(con,'week')
     with socket.socket() as sock:
         sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-    threading.Thread(target=serve,args=(db,ROOT/'templates/892_slots_original.html',ROOT/'editor.html','week',port),daemon=True).start()
+    threading.Thread(target=server.serve,args=(db,ROOT/'templates/892_slots_original.html',ROOT/'editor.html','week',port),daemon=True).start()
     base=f'http://127.0.0.1:{port}'
     for _ in range(100):
         try:
@@ -39,6 +47,17 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('[data-view=edit]').click()
         page.locator('[data-queue=all]').click()
         expect(page.locator('.queue-row')).to_have_count(1)
+        expect(page.locator('#headerEdition')).to_contain_text('편집 가능 · 초안')
+        expect(page.locator('#selectVisible')).to_be_enabled()
+        page.locator('#selectVisible').check()
+        expect(page.locator('#selectedCount')).to_have_text('선택 1건')
+        page.locator('.queue-row [data-queue-check]').uncheck()
+        expect(page.locator('#selectedCount')).to_have_text('선택 0건')
+        page.locator('#viewModeToggle').click()
+        page.locator('[data-card-select]').check()
+        expect(page.locator('#selectedCount')).to_have_text('선택 1건')
+        page.locator('[data-card-select]').uncheck()
+        page.locator('#viewModeToggle').click()
         page.locator('.queue-open').first.click()
         page.locator('#detailCompany').check()
         expect(page.locator('#companyList')).to_contain_text('메디팁 시장 테스트 기사')
@@ -57,11 +76,22 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#companyList [data-company-move="1"]').first.click()
         page.locator('[data-view=collect]').click()
         page.locator('#approvalKind').select_option('drug')
-        page.locator('#approvalFile').set_input_files({'name':'approval.csv','mimeType':'text/csv','buffer':'품목명,업체명,허가일자\nBrowser-Drug,Maker,2026-11-20\n'.encode('utf8')})
+        page.locator('[data-drop-input="approvalFile"]').evaluate("""zone=>{const data=new DataTransfer();data.items.add(new File(['품목명,업체명,허가일자\\nBrowser-Drug,Maker,2026-11-20\\n'],'approval.csv',{type:'text/csv'}));zone.dispatchEvent(new DragEvent('drop',{dataTransfer:data,bubbles:true,cancelable:true}))}""")
+        expect(page.locator('[data-drop-input="approvalFile"] .drop-filename')).to_contain_text('approval.csv')
         page.locator('#importApproval').click()
         expect(page.locator('#approvalStatus')).to_contain_text('등록 1건')
+        page.locator('#approvalKind').select_option('treatment')
+        page.locator('#collectApproval').click()
+        expect(page.locator('#approvalStatus')).to_contain_text('공식 조회 4건',timeout=15000)
+        expect(page.locator('#approvalStatus')).to_contain_text('등록 4건')
+        page.screenshot(path=str(ROOT/'output'/'v012_approval_desktop.png'),full_page=True)
         page.locator('[data-view=settings]').click()
         expect(page.locator('#brandingImages')).to_contain_text('MVP 이미지')
+        expect(page.locator('#brandContact')).to_have_value('최서영')
+        expect(page.locator('#brandEmail')).to_have_value('sychoi@meditip.co.kr')
+        assert page.locator('#brandPhone').evaluate('el=>el.getBoundingClientRect().height')>=40
+        assert page.locator('#resetLogo').evaluate('el=>el.getBoundingClientRect().width')==18
+        page.screenshot(path=str(ROOT/'output'/'v012_branding_desktop.png'),full_page=True)
         page.locator('#brandContact').fill('Browser Test Contact')
         page.locator('#brandEmail').fill('review@example.org')
         page.locator('#saveBranding').click()
@@ -76,14 +106,31 @@ with tempfile.TemporaryDirectory() as tmp:
         frame=page.frame_locator('#newsletterPreview')
         expect(frame.locator('[data-slot="company_news"]')).to_contain_text('직접 등록 회사 소식')
         expect(frame.locator('[data-approval-slot="drug"]')).to_contain_text('Browser-Drug')
+        expect(frame.locator('[data-approval-slot="clinical"]')).to_contain_text('방광암')
         expect(frame.locator('[data-publication-slot]')).to_contain_text('발행일 2026-11-25')
         expect(frame.locator('[data-contact-slot]')).to_contain_text('Browser Test Contact')
-        expect(frame.locator('[data-image-slot="banner"] img')).to_have_js_property('naturalWidth',400)
+        expect(frame.locator('[data-image-slot="banner"] img')).to_have_js_property('naturalWidth',1600)
+        expect(frame.locator('[data-image-slot="footer"] img')).to_have_js_property('naturalWidth',1600)
         page.locator('#confirmedBy').fill('Test Operator')
         page.locator('#finalAck').check()
         page.locator('#confirmIssue').click()
         expect(page.locator('#finalState')).to_contain_text('확정본')
         expect(page.locator('#confirmIssue')).to_be_disabled()
+        expect(page.locator('#headerEdition')).to_contain_text('확정 · 읽기 전용')
+        page.locator('[data-view=edit]').click()
+        expect(page.locator('#selectVisible')).to_be_disabled()
+        page.locator('#group').select_option('industry')
+        expect(page.locator('[data-queue-check]')).to_be_disabled()
+        page.locator('.queue-open').first.click()
+        expect(page.locator('#detailTop')).to_be_checked()
+        expect(page.locator('#detailTop')).to_be_disabled()
+        expect(page.locator('#detailCompany')).to_be_checked()
+        expect(page.locator('#detailCompany')).to_be_disabled()
+        page.locator('#closeDetail').click()
+        page.locator('#viewModeToggle').click()
+        expect(page.locator('[data-card-select]')).to_be_disabled()
+        page.locator('#viewModeToggle').click()
+        expect(page.locator('#openDraftSetup')).to_be_visible()
         frozen=requests.get(base+'/export/html',timeout=3).content
         assert b'Browser-Drug' in frozen
         page.locator('[data-view=settings]').click()
@@ -92,6 +139,12 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(page.locator('#brandingStatus')).to_contain_text('저장 완료')
         assert requests.get(base+'/api/settings',timeout=3).json()['branding']['contact_name']=='Changed Contact'
         assert requests.get(base+'/export/html',timeout=3).content==frozen
+        mobile=browser.new_page(viewport={'width':390,'height':844})
+        mobile.goto(base)
+        mobile.locator('[data-view=settings]').click()
+        expect(mobile.locator('#brandContact')).to_have_value('Changed Contact')
+        assert mobile.evaluate('document.body.scrollWidth<=window.innerWidth+3')
+        mobile.screenshot(path=str(ROOT/'output'/'v012_branding_mobile.png'),full_page=True)
         assert not errors,errors
         browser.close()
 print('v0.11 localhost browser: company, TOP, CSV, branding, publication and frozen HTML PASS')

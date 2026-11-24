@@ -30,7 +30,7 @@ input[type=text],input[type=search],input[type=number],input[type=date],select,t
 .iframe-preview{width:100%;min-height:600px;border:1px solid #dbe4ee;border-radius:12px;background:#fff}
 .muted{color:#718198;font-size:12px}.pill{display:inline-block;border-radius:100px;background:#e9f2fa;color:#27618f;padding:5px 11px;font-size:12px}
 .form-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.form-row>label{display:block;flex:1;min-width:150px;font-size:13px;font-weight:650}
-.form-row input{display:block;width:100%;margin-top:6px}
+.form-row input:not([type=checkbox]):not([type=radio]):not([type=file]){display:block;width:100%;margin-top:6px}
 .review-answer{white-space:pre-wrap;background:#f5f8fc;padding:12px;border-radius:10px;line-height:1.65;font-size:13px;min-height:44px}
 settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;line-height:1.8}
 .hidden-when-locked{display:block}.top-picker{max-width:360px;display:flex;gap:8px;align-items:center}.top-picker select{flex:1}
@@ -276,3 +276,104 @@ button:disabled{opacity:.48;cursor:not-allowed}
 #view-edit .form-row,#view-collect .form-row{flex-wrap:wrap}
 #companySummary{min-height:70px}
 @media(max-width:600px){#companyList .rankrow{grid-template-columns:1.5rem minmax(0,1fr) auto auto;gap:5px}#companyList .rankrow .tag{grid-column:2;grid-row:2}#companyList .rankrow button[data-company-move]{grid-row:1}}
+
+/* v0.12: common operator component system.
+   Control roles are independent from surfaces; no external CSS dependency.
+   Reference: IBM Carbon form, checkbox and file uploader patterns. */
+:root{
+ --ui-bg:#f4f6f9;--ui-surface:#fff;--ui-ink:#172b42;--ui-muted:#53677c;
+ --ui-line:#c9d4e0;--ui-line-soft:#e2e8ef;--ui-primary:#185e96;--ui-primary-hover:#104d7e;
+ --ui-focus:#287fca;--ui-selected:#e8f2fb;--ui-disabled:#eef1f5;--ui-disabled-text:#647487;
+ --ui-danger:#a43232;--ui-radius:8px;--ui-control-height:40px;
+ --ui-space-1:4px;--ui-space-2:8px;--ui-space-3:12px;--ui-space-4:16px;--ui-space-5:24px;
+}
+body{background:var(--ui-bg);color:var(--ui-ink)}
+.app-main .surface,.app-main .panel{border:1px solid var(--ui-line-soft);border-radius:12px;box-shadow:0 2px 10px #173b5808}
+.app-main .surface>h3,.app-main .panel>h3{font-size:17px;line-height:1.45;color:var(--ui-ink);margin:0 0 var(--ui-space-4)}
+.app-main .form-row,.app-main .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:var(--ui-space-4);align-items:start}
+.app-main .form-row>label,.app-main .form-grid>label,.app-main .field-block{min-width:0}
+.app-main :is(.form-row,.form-grid)>label:not(.checkline),.app-main .field-block,.app-main .field-label{
+ display:flex;flex-direction:column;gap:var(--ui-space-2);font-weight:600;font-size:13px;line-height:1.4;color:var(--ui-ink)
+}
+.app-main .form-grid .span-full{grid-column:1/-1}
+.app-main .brand-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app-main .brand-assets{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:20px;align-items:start}
+.app-main input:not([type]),.app-main input:is([type=text],[type=search],[type=number],[type=date],[type=email],[type=tel],[type=url]),.app-main select,.app-main textarea{
+ box-sizing:border-box;min-width:0;max-width:100%;min-height:var(--ui-control-height);padding:9px 12px;
+ border:1px solid var(--ui-line);border-radius:var(--ui-radius);background:var(--ui-surface);color:var(--ui-ink);
+ font:400 14px/1.45 'Segoe UI','Malgun Gothic',system-ui,sans-serif;
+}
+.app-main :is(.form-row,.form-grid,.field-block)>label>input:not([type=checkbox]):not([type=radio]):not([type=file]),.app-main :is(.form-row,.form-grid)>label>select{width:100%;margin:0}
+.app-main textarea{width:100%;min-height:96px;resize:vertical}
+.app-main input::placeholder,.app-main textarea::placeholder{color:#748397;opacity:1}
+.app-main :is(input,select,textarea):disabled{background:var(--ui-disabled);color:var(--ui-disabled-text);border-color:#d5dde6;cursor:not-allowed;opacity:1}
+.app-main :is(input,select,textarea,button,a,summary):focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.app-main input:is([type=checkbox],[type=radio]){
+ appearance:auto;accent-color:var(--ui-primary);width:18px;height:18px;min-height:0;min-width:18px;
+ flex:0 0 18px;display:inline-block;vertical-align:middle;margin:0;padding:0;cursor:pointer
+}
+.app-main input:is([type=checkbox],[type=radio]):disabled{cursor:not-allowed;opacity:.8}
+.app-main .checkline,.app-main .form-row>.checkline,.app-main .form-grid .checkline{
+ display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:9px;
+ font-weight:500;font-size:13px;line-height:1.45;min-height:24px;margin:4px 0;cursor:pointer
+}
+.app-main .checkline input{margin:1px 0 0}
+.app-main .checkline:has(input:disabled){color:var(--ui-disabled-text);cursor:not-allowed}
+.app-main .detail-form .checkline{margin:8px 0}
+.app-main .queue-select{display:flex;align-items:flex-start;justify-content:center;min-width:22px;padding-top:4px}
+.app-main .selection-bar>label,.app-main .candidate-card .actions>label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;white-space:normal}
+.app-main button,.app-main a.button{
+ display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--ui-control-height);
+ border:1px solid var(--ui-line);border-radius:var(--ui-radius);padding:8px 14px;
+ background:#fff;color:#214c70;font:600 13px/1.35 'Segoe UI','Malgun Gothic',system-ui,sans-serif;
+ text-decoration:none;white-space:normal;box-shadow:none;cursor:pointer
+}
+.app-main button:not(:disabled):hover,.app-main a.button:hover{background:#edf4fa;border-color:#8eb2d0}
+.app-main button.primary,.app-main a.primary{background:var(--ui-primary);border-color:var(--ui-primary);color:#fff}
+.app-main button.primary:not(:disabled):hover,.app-main a.primary:hover{background:var(--ui-primary-hover);border-color:var(--ui-primary-hover)}
+.app-main button:disabled,.app-main button.primary:disabled{opacity:1;background:var(--ui-disabled);border-color:#d5dde6;color:var(--ui-disabled-text);cursor:not-allowed}
+.app-main button.queue-tab{border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;min-height:40px;padding:10px 13px}
+.app-main button.queue-tab[aria-selected=true]{background:var(--ui-selected);border-bottom-color:var(--ui-primary);font-weight:700}
+.app-main button.queue-open,.app-main button.queue-open:hover,.app-main button.company-open,.app-main button.company-open:hover{
+ display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;text-align:left;min-height:0;padding:0;border:0;background:transparent;color:#183f5b
+}
+.app-main button.company-open{padding:6px;overflow-wrap:anywhere;word-break:break-word}
+.app-main .inclusion-toggle{border:1px solid var(--ui-line);border-radius:8px;overflow:hidden}
+.app-main .inclusion-toggle button{border:0;border-radius:0;min-height:36px;min-width:66px}
+.app-main .inclusion-toggle button+button{border-left:1px solid var(--ui-line)}
+.app-main .rankrow button:not(.company-open){min-height:32px;padding:5px 10px}
+.app-main .queue-row.active{background:var(--ui-selected);box-shadow:inset 3px 0 var(--ui-primary)}
+.app-main .queue-filters label{display:flex;flex-direction:column;gap:5px;font-size:12px;line-height:1.4}
+.app-main .queue-filters{align-items:end}
+.app-main .queue-filters select{width:100%;min-width:0}
+.app-main .file-drop{
+ position:relative;min-width:0;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+ padding:16px 12px;text-align:center;border:1.5px dashed #8aa9c6;border-radius:10px;background:#f8fbfe;cursor:pointer;
+ transition:background .12s,border-color .12s
+}
+.app-main .file-drop:hover,.app-main .file-drop.is-dragover,.app-main .file-drop:focus-within{background:#e8f2fb;border-color:var(--ui-primary)}
+.app-main .file-drop:focus-within{outline:2px solid var(--ui-focus);outline-offset:2px}
+.app-main .file-drop input[type=file]{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden;white-space:nowrap;padding:0;margin:0;border:0}
+.app-main .file-drop .drop-title{font-size:13px;font-weight:650;color:#215d8d}
+.app-main .file-drop .drop-filename{font-size:12px;color:var(--ui-muted);font-weight:400;overflow-wrap:anywhere;max-width:100%}
+.app-main .file-drop.has-file{border-style:solid;border-color:#77aa91;background:#f4fbf7}
+.app-main .file-drop.file-error{border-color:var(--ui-danger);background:#fff6f5}
+.app-main .file-drop.file-error .drop-filename{color:var(--ui-danger)}
+.app-main .file-drop.disabled{background:var(--ui-disabled);border-color:#d5dde6;cursor:not-allowed}
+.app-main .file-drop.disabled .drop-title{color:var(--ui-disabled-text)}
+.app-main .compact-drop{min-height:68px;flex:1;max-width:400px}
+.app-main .upload-block{margin-top:16px;border-top:1px solid var(--ui-line-soft);padding-top:16px}
+.app-main .upload-block>.field-label{margin-bottom:8px}
+.app-main .approval-controls{grid-template-columns:minmax(140px,1fr) minmax(190px,1fr) auto;align-items:end}
+.app-main .period-output{display:block;min-height:40px;border:1px solid var(--ui-line);border-radius:8px;background:#f5f8fb;padding:10px 12px;font-size:13px;font-weight:500;overflow-wrap:anywhere}
+.app-main .approval-links{gap:8px;margin-top:12px}
+.app-main .approval-links .button{font-size:12px;min-height:34px}
+.app-main .readonly-note{font-size:12px;font-weight:600;color:#5a4d35;padding:9px 10px;background:#fff7e4;border:1px solid #e9d5a8;border-radius:8px;line-height:1.5}
+.app-main>header{flex-wrap:wrap;gap:10px 14px}
+.app-main>header #headerEdition:not([hidden]){display:inline-flex;max-width:100%;font-size:12px;font-weight:650;padding:6px 10px;border:1px solid #a7d4bb;border-radius:6px;background:#e5f5eb;color:#246242;overflow-wrap:anywhere}
+.app-main>header #headerEdition.locked-edition:not([hidden]){background:#eef1f5;border-color:#c4ced9;color:#46566a}
+.app-main .edition-context{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.app-main .edition-context button{min-height:36px}
+.app-main .brand-assets .field-block .checkline{min-height:24px}
+@media(max-width:920px){.app-main .brand-assets{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls>button{justify-self:start}}
+@media(max-width:600px){.app-main .brand-fields,.app-main .brand-assets,.app-main .form-row,.app-main .form-grid,.app-main .approval-controls{grid-template-columns:1fr}.app-main .form-row>label{min-width:0}.app-main .approval-controls>button{width:100%}.app-main .queue-filters label{min-width:0}.app-main .compact-drop{max-width:100%;flex-basis:100%}.app-main .file-drop{min-height:84px}}

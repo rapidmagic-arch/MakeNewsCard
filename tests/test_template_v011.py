@@ -89,7 +89,7 @@ def test_approval_slots_company_and_banner(tmp_path):
                 assert 'Standalone company news' in soup.select_one('[data-slot="company_news"]').get_text()
                 assert soup.select_one('[data-image-slot="banner"] img')['src']==default_banner(TEMPLATE)
                 raw=base64.b64decode(soup.select_one('[data-image-slot="banner"] img')['src'].split(',')[1])
-                assert hashlib.sha256(raw).hexdigest()=='88e1f4bbbfc3c5056f363cfff3cb6389f49dd89cb74ee98f634dc86854aa5d3c'
+                assert hashlib.sha256(raw).hexdigest()=='eeb891e487f66907b1a74e200805696b9b17390b6524c7637f84b9506baf13df'
                 assert '제약 제약' not in soup.get_text()
                 assert soup.select_one('a[href="https://nedrug.mfds.go.kr/searchClinic"]')
                 assert soup.select_one('a[href="https://nedrug.mfds.go.kr/pbp/CCBAE01"]')
