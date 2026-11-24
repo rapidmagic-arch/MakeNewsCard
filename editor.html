@@ -51,11 +51,11 @@
     <div></div>
     <div class="review-shortcuts"><button type="button" data-go="settings">추천 그룹 설정</button><button type="button" class="primary" data-go="preview">출력 미리보기</button></div>
   </div>
-  <div class="notice" id="editionScope">회차에 연결된 기사만 조회해. 미확인 날짜와 수집 범위를 확인해.</div>
+  <div class="notice" id="editionScope"></div>
   <section class="surface review-ai" aria-label="기사 분석">
     <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3></div><button id="runAi" class="primary">이번 회차 언론기사 GPT 분석</button></div>
     <p id="aiJobStatus" class="status" role="status" aria-live="polite"></p>
-    <details class="secondary-tools"><summary>GPT API 없이 분석 결과 사용하기 (JSON)</summary><div class="actions"><a class="button" href="/export/ai" download>분석 후보 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택"><button id="importAi">GPT 결과 가져오기</button></div></details>
+    <details class="secondary-tools"><summary>GPT 결과 JSON 가져오기</summary><div class="actions"><a class="button" href="/export/ai" download>분석 후보 JSON 받기</a><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택"><button id="importAi">GPT 결과 가져오기</button></div></details>
   </section>
   <section class="surface review-queue" aria-label="기사 선택 및 검토">
     <div class="review-step-title"><div><h3>2. 추천 및 검토 대기열</h3></div></div>
@@ -92,7 +92,7 @@
         </div>
       </section>
       <div id="detailBackdrop" class="detail-backdrop" hidden></div>
-      <aside id="detailPanel" class="review-detail" aria-label="선택 기사 상세 편집" aria-live="polite"><div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>왼쪽의 기사를 선택하면 원본·추천·최종 수록 내용이 여기에 나타나.</p></div></aside>
+      <aside id="detailPanel" class="review-detail" aria-label="선택 기사 상세 편집" aria-live="polite"><div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>기사를 선택하세요.</p></div></aside>
     </div>
     <p id="feedback" class="status" role="status"></p>
   </section>
@@ -116,7 +116,7 @@
 <div class="group-form-grid"><label>그룹명<input id="reviewGroupName" type="text" maxlength="40" placeholder="예: 보험·약가"></label>
 <label>발행 분야<select id="reviewGroupSection"><option value="industry.policy">정책</option><option value="industry.market">시장</option><option value="industry.global">글로벌</option><option value="industry.rnd">연구개발</option></select></label></div>
 <label class="group-keywords">판별 키워드 (쉼표 또는 줄바꿈으로 구분)<textarea id="reviewGroupTerms" placeholder="약가, 보험등재, 급여"></textarea></label>
-<label class="checkline"><input type="checkbox" id="reviewGroupRecommend" checked> 키워드 일치 시 수록 추천 후보로 분류 (자동 수록하지 않음)</label>
+<label class="checkline"><input type="checkbox" id="reviewGroupRecommend" checked> 일치 시 수록 추천</label>
 <div class="actions"><button class="primary" id="saveReviewGroup">그룹 저장</button><button id="cancelReviewGroup">입력 초기화</button></div></div>
 <div class="actions"><button id="refreshReviewGroups">현재 초안에 분류 제안 다시 계산</button><span id="reviewGroupStatus" class="status" role="status"></span></div>
 </section>
@@ -308,7 +308,7 @@ function renderCardGallery(view){
   (safeLink?'<a class="button" href="'+esc(safeLink)+'" rel="noopener noreferrer" target="_blank">원문 보기</a>':'')+'</div></article>';
 }
 function openCandidate(id){if(detailItemId!==id&&detailDirty&&!confirm('저장하지 않은 편집 내용을 버리고 다른 기사를 열까?'))return;
- detailDirty=false;detailItemId=id;render();if(window.matchMedia('(max-width: 1060px)').matches)$('closeDetail')?.focus()}
+ detailDirty=false;detailItemId=id;render();$('detailPanel').scrollTop=0;if(window.matchMedia('(max-width: 1060px)').matches)$('closeDetail')?.focus()}
 $('viewModeToggle').addEventListener('click',()=>{cardMode=!cardMode;cardIndex=0;render()});
 $('cardPrev').addEventListener('click',()=>{cardIndex=Math.max(0,cardIndex-1);render()});
 $('cardNext').addEventListener('click',()=>{cardIndex++;render()});
@@ -380,7 +380,7 @@ function renderDetail(){
  const draft=detailDirty&&target.dataset.itemId===detailItemId&&$('detailTitle')&&$('detailSummary')?
        {title:$('detailTitle').value,summary:$('detailSummary').value}:null;
  target.dataset.itemId=x?.id||'';
- if(!x){target.innerHTML='<div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>왼쪽에서 기사를 열면 원본·분류 제안·최종 편집 내용이 나타나.</p></div>';return;}
+ if(!x){target.innerHTML='<div class="detail-empty"><h3>3. 기사 상세 편집</h3><p>기사를 선택하세요.</p></div>';return;}
  const confirmed=db.edition.status==='confirmed',locked=confirmed?'disabled':'';
  const proposed=candidateSection(x),actual=x.section_override||x.section;
  const attrs=sectionSelectOptions(x).map(key=>'<option value="'+esc(key)+'" '+(key===actual?'selected':'')+'>'+esc(sectionLabel[key]||key)+'</option>').join('');
@@ -512,8 +512,8 @@ async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)thro
  reviewGroups=j.review_groups||[];renderReviewGroups();
  aiReady=Boolean(j.ai_api_available);
  $('runAi').disabled=!aiReady||db?.edition?.status==='confirmed';
- $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정 · 프로젝트 루트 .env에 설정 후 서버 재시작 또는 JSON 가져오기';
- if(!aiReady)$('aiJobStatus').textContent='API 연결 안 됨 · JSON 파일로 GPT 제안을 가져올 수 있어.';}
+ $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정';
+ if(!aiReady)$('aiJobStatus').textContent='API 미연결';}
 
 $('runAi').addEventListener('click',async()=>{const ids=scopeIndustry().map(x=>x.id);
  if(!ids.length){$('aiJobStatus').textContent='후보가 없어.';return}
