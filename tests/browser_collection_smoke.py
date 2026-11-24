@@ -114,7 +114,7 @@ with sync_playwright() as pl:
     page.wait_for_timeout(150)
     assert '수집 작업 종료' in page.locator('#collectionState').inner_text()
     assert page.locator('#collectionResults').is_hidden()  # 2 records/source, partial is not an error log
-    assert '후보 16건' in page.locator('#collectionState').inner_text()
+    assert '발견 16건' in page.locator('#collectionState').inner_text()
     page.evaluate("""() => showCollection({state:'finished',processed:3,total:3,results:[
       {source:'press',status:'partial',records:6,pages:2,issues:['Page coverage unverified']},
       {source:'guides_staff',status:'partial',records:0,pages:1,issues:['No article links parsed']},
