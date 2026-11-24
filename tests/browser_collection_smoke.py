@@ -127,6 +127,20 @@ with sync_playwright() as pl:
     assert 'HTTPError: 500' in problem.inner_text()
     assert 'Page coverage unverified' not in problem.inner_text()
     assert page.evaluate("getComputedStyle(document.querySelector('#collectionResults')).overflowY")=='auto'
+    page.evaluate("""() => showCollection({state:'finished',processed:3,total:3,results:[
+      {source:'official_live_clinical',status:'success',records:34,official_total:34,save_counts:{new:34,unchanged:0,changed:0}},
+      {source:'official_live_treatment',status:'success',records:4,official_total:4,save_counts:{new:4,unchanged:0,changed:0}},
+      {source:'official_live_drug',status:'success',records:15,official_total:23,cancelled_only:8,save_counts:{new:15,unchanged:0,changed:0}}
+    ]})""")
+    assert problem.locator('.collection-result-row').count()==3
+    assert problem.locator('.collection-result-row').last.locator('.collection-result-heading').inner_text().count('품목허가')==1
+    assert '공식 조회 23건' in problem.inner_text() and '등록 15건' in problem.inner_text()
+    assert '취소/취하만 해당 8건 제외' in problem.inner_text()
+    assert page.locator('.collection-log').evaluate("el=>parseFloat(getComputedStyle(el).paddingLeft)")>=14
+    assert page.locator('#collectionProgress').evaluate("el=>el.getBoundingClientRect().height")==8
+    page.locator('[data-view=edit]').click()
+    assert page.locator('.selection-panels .top-review>summary').inner_text()=='주요 뉴스카드'
+    page.locator('[data-view=collect]').click()
     page.evaluate("() => showCollection({state:'finished',edition_id:'previous-week',processed:1,total:1,results:[{source:'guides_staff',status:'failed',records:0}]})")
     assert page.locator('#collectionResults').is_hidden()
     assert '대기' in page.locator('#collectionState').inner_text()
