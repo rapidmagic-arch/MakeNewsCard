@@ -1,10 +1,11 @@
 """Offline Playwright smoke: archive paging and optional article card navigation."""
 from pathlib import Path
+from meditip.ui_assets import read_editor
 import json
 from playwright.sync_api import sync_playwright
 
 ROOT=Path(__file__).resolve().parents[1]
-html=(ROOT/'editor.html').read_text(encoding='utf8').replace(
+html=read_editor(ROOT/'editor.html',inline_script=True).replace(
     '<link rel="stylesheet" href="/assets/editor.css">',
     '<style>'+(ROOT/'assets/editor.css').read_text(encoding='utf8')+'</style>')
 edition={'id':'demo','title':'편집 중','period_start':'2026-11-02','period_end':'2026-11-08',
