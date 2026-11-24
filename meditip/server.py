@@ -17,6 +17,7 @@ import yaml
 from .collect import collect_source, source_specs, import_approval_bytes
 from .company import register_company, set_company_order
 from .branding import public_branding, save_branding
+from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
 from .render import render
@@ -106,6 +107,35 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             with lock:
                 job['current'] = None
                 job['finished_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+
+    def run_approval(kind, edition):
+        try:
+            with connect(db_path) as con:
+                ed=require_draft(con,edition)
+                ensure_single_approval_mode(con,kind,ed,'live')
+            result=fetch_approval(kind,ed['period_start'],ed['period_end'])
+            with lock, connect(db_path) as con:
+                ed=require_draft(con,edition)
+                before={x['id'] for x in edition_rows(con,edition)}
+                detail=save_live_approval(con,kind,ed,result)
+                rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                prepare(con,edition,with_groups(con,rules))
+                after={x['id'] for x in edition_rows(con,edition)}
+                log_run(con,'official_live_'+kind,ed['period_start'],ed['period_end'],'success',
+                        detail['pages'],detail['records'],{'method':'official_public_list',**detail},edition_id=edition)
+                job.update(state='finished',processed=1,current=None,
+                           results=[{'source':'official_live_'+kind,'status':'success',**detail}],
+                           new_edition_links=len(after-before))
+        except Exception as exc:
+            error=type(exc).__name__+': '+str(exc)[:220]
+            with lock:
+                job.update(state='failed',error=error,current=None,processed=1)
+            with connect(db_path) as con:
+                log_run(con,'official_live_'+kind,None,None,'failed',0,0,
+                        {'method':'official_public_list','error':error},edition_id=edition)
+        finally:
+            with lock:
+                job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     def run_ai_review(payload, edition):
         try:
@@ -333,6 +363,24 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                                          daemon=True).start()
                     self._json(job_snapshot(), 202)
                     return
+                if p == '/api/approval/collect':
+                    kind=obj.get('kind')
+                    if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
+                        raise ValueError('Unknown approval category')
+                    with lock:
+                        if job['state']=='running' or ai_job['state']=='running':
+                            self._json({'error':'현재 수집 또는 분석 작업 종료 후 실행하세요.'},409)
+                            return
+                        with connect(db_path) as con:
+                            ed=require_draft(con,active['edition'])
+                            ensure_single_approval_mode(con,kind,ed,'live')
+                        job.clear()
+                        job.update(state='running',approval_kind=kind,results=[],processed=0,total=1,
+                                   current='official_live_'+kind,error=None,edition_id=ed['id'],
+                                   started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+                        threading.Thread(target=run_approval,args=(kind,ed['id']),daemon=True).start()
+                    self._json(job_snapshot(),202)
+                    return
                 if p == '/api/edition/select':
                     target=obj.get('edition_id')
                     if not isinstance(target,str):raise ValueError('Select an edition')
@@ -396,8 +444,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     if not isinstance(title, str) or len(title) > 120:
                         raise ValueError('Invalid edition title')
                     with lock:
-                        if job['state'] == 'running':
-                            self._json({'error': 'Cannot switch edition during collection'}, 409)
+                        if job['state'] == 'running' or ai_job['state']=='running':
+                            self._json({'error': 'Cannot switch edition during collection or analysis'}, 409)
                             return
                         eid = obj.get('edition_id') or f'edition-{start}-{end}'
                         if not isinstance(eid,str) or not re.fullmatch(r'[0-9A-Za-z_-]{4,72}',eid):
@@ -435,7 +483,13 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             raise ValueError('Invalid CSV file')
                         if not raw or len(raw)>2_500_000:
                             raise ValueError('CSV size must be 1..2500000 bytes')
-                        result=import_approval_bytes(con,raw,obj.get('kind'),edition=ed)
+                        if job['state']=='running' or ai_job['state']=='running':
+                            raise ValueError('현재 수집 또는 분석 작업 종료 후 등록하세요.')
+                        kind=obj.get('kind')
+                        if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
+                            raise ValueError('Unknown approval category')
+                        ensure_single_approval_mode(con,kind,ed,'csv')
+                        result=import_approval_bytes(con,raw,kind,edition=ed)
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                         prepare(con,ed['id'],with_groups(con,rules))
                         self._json({'ok':True,**result})
