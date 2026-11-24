@@ -259,7 +259,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     for anchor in soup.find_all('a',href=True):
         label=anchor.get_text(' ',strip=True)
         path=urlsplit(anchor['href']).path
-        if path=='/searchClinic' and anchor.find('strong') and '임상시험' in label:
+        if path=='/searchClinic' and label=='임상시험승인현황' and (anchor.find('strong') or anchor.find_parent('strong')):
             anchor['href']=approval_search_url('clinical',edition['period_start'],edition['period_end'])
         elif path=='/pbp/CCBAE01' and anchor.find('strong') and '주간허가현황' in label:
             anchor['href']=approval_search_url('drug',edition['period_start'],edition['period_end'])
