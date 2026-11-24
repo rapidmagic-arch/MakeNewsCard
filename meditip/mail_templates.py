@@ -22,7 +22,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     """Static Outlook-friendly email; same editorial decisions as classic renderer."""
     from .db import edition_rows, get_edition
     from .render import GROUPS, effective, mfds_unique_sectioned, unique_for_display, approval_table, top_output_rows, source_name
-    from .company import company_rows
+    from .company import company_output_rows
 
     edition = get_edition(con, edition_id)
     rows = edition_rows(con, edition_id)
@@ -107,7 +107,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
             parts.append('</tr>')
         parts.append('</table></td></tr>')
 
-    company = [x for x in company_rows(rows) if x['include_detail']]
+    company = company_output_rows(rows)
     if company:
         parts.append(section_title('메디팁 소식'))
         parts.append(article_rows(company, 'source'))
