@@ -142,7 +142,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     parts.extend([
         '<tr><td style="padding:22px 20px;margin-top:25px;border-top:1px solid #d9e4ec;'
         'font-family:Arial,Malgun Gothic,sans-serif;font-size:11px;line-height:17px;'
-        'color:#6a7d8c">MEDiTIP · 공개된 원문 링크를 확인해 주세요.</td></tr>',
+        'color:#6a7d8c">MEDiTIP · 공개된 원문 링크를 확인해 주세요.' + ''.join('<br>'+h(line) for line in contact_lines(branding)) + '</td></tr>',
         '</table></td></tr></table></body></html>',
     ])
     return ''.join(parts)
