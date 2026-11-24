@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import requests
 from .collect import get, norm_date
 from .db import save_item
+from .source_links import approval_search_url
 
 DOMAIN='nedrug.mfds.go.kr'
 ROOT='https://'+DOMAIN
@@ -24,8 +25,7 @@ MAX_PAGES=100
 
 def approval_url(kind,start,end,page=1):
     if kind not in SPECS:raise ValueError('Unknown approval category')
-    path,dates,params,*_=SPECS[kind]
-    return ROOT+path+'?'+urlencode({**params,dates[0]:start,dates[1]:end,'page':page})
+    return approval_search_url(kind,start,end,page=page)
 
 def clean(node):
     return ' '.join(node.get_text(' ',strip=True).split())
