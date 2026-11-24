@@ -115,6 +115,9 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(page.locator('[data-drop-input="approvalFile"] .drop-filename')).to_contain_text('approval.csv')
         page.locator('#importApproval').click()
         expect(page.locator('#approvalStatus')).to_contain_text('등록 1건')
+        expect(page.locator('#approvalStatus')).to_contain_text('원본 보관 완료')
+        stored=list((Path(tmp)/'files'/'imports').rglob('approval-*.csv'))
+        assert len(stored)==1 and b'Browser-Drug' in stored[0].read_bytes()
         page.locator('#approvalKind').select_option('treatment')
         page.locator('#collectApproval').click()
         expect(page.locator('#approvalStatus')).to_contain_text('공식 조회 4건',timeout=15000)
@@ -128,6 +131,7 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('[data-view=settings]').click()
         expect(page.locator('#brandingImages')).to_contain_text('MVP 이미지')
         expect(page.locator('#brandContact')).to_have_value('최서영')
+        expect(page.locator('#managedFilesPath')).to_have_text(str(Path(tmp)/'files'))
         expect(page.locator('#brandEmail')).to_have_value('sychoi@meditip.co.kr')
         assert page.locator('#brandPhone').evaluate('el=>el.getBoundingClientRect().height')>=40
         assert page.locator('#resetLogo').evaluate('el=>el.getBoundingClientRect().width')==18
@@ -189,6 +193,8 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#viewModeToggle').click()
         expect(page.locator('#openDraftSetup')).to_be_visible()
         frozen=requests.get(base+'/export/html',timeout=3).content
+        stored=list((Path(tmp)/'files'/'exports').rglob('newsletter-*.html'))
+        assert len(stored)==1 and stored[0].read_bytes()==frozen
         assert b'Browser-Drug' in frozen
         page.locator('[data-view=settings]').click()
         page.locator('#brandContact').fill('Changed Contact')
