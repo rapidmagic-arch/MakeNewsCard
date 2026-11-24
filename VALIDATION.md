@@ -62,3 +62,11 @@
 - Existing collection smoke now opens advanced settings before changing RSS; browser suite runs all files and reports combined failure status.
 - MVP banner file bytes checked against Git blob SHA `321c4b39bee0bf01dbec2539d7bef91064fe379a`. Actual Windows Outlook and live external data completeness remain outside automated verification.
 - The CI run associated with the final PR head is authoritative; this section lists coverage, not a test pass claim.
+
+## v0.12 validation
+- 2026-11-16~22 의약품안전나라 공개 GET 날짜 검색 화면 확인: 임상시험 34, 치료목적 4, 품목허가공고 23건. 임상시험 및 품목허가 2페이지 순번 11 확인. 이 숫자는 조회 화면 총 건수이며 품목허가의 취소/취하 건은 허가 수록 수와 다를 수 있다.
+- `fixtures/approval_*_20261116_page1.html`: 공식 공개 페이지의 날짜 입력, 총 건수, 목록 표를 추출한 최소 회귀 자료(전체 페이지/완전 수집 데이터 아님).
+- `tests/test_approval_live_v012.py`: 실제 공개 페이지 구조, 날짜 확인, 페이지 순번, 건수 불일치, 저장 반복 및 수집 방식 혼합 방지.
+- `tests/browser_template_v011.py`: 실제 localhost UI, 모의 공식 데이터 응답, 드롭존, 현재 페이지/카드 선택, 확정 회차 잠금, 샘플 연락처, HD 이미지, 변경된 브랜드 설정 및 확정 HTML 보존.
+- 상단 Git blob SHA `30db07ef86f7f63b471e4b9f85171cabf6c3acd1`, 하단 `70153575f3eec5dc73261ecd89be0dc5bed40171`; 원본 크롭 이미지와 일치 확인.
+- UI CSS 참고: IBM Carbon Design System Forms, Checkbox, File uploader; 로컬 CSS로 구현. 실사용 Windows 네트워크 및 Outlook 데이터 URI 호환성은 별도 검증 대상.
