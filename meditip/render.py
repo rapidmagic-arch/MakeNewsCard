@@ -185,15 +185,21 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
                 row['ai_summary']=None
     tops=top_output_rows(rows, edition['top_target'])
     soup=BeautifulSoup(Path(template_path).read_text(encoding='utf-8'),'html.parser')
-    banner_slot=soup.select_one('[data-image-slot="banner"]')
-    banner_path=Path(template_path).resolve().parent.parent/'assets'/'newsletter'/'meditip-mvp-banner.jpg'
-    if banner_slot is not None and banner_path.is_file():
-        from base64 import b64encode
-        img=soup.new_tag('img',src='data:image/jpeg;base64,'+b64encode(banner_path.read_bytes()).decode('ascii'),
-                         alt='MEDiTIP 뉴스레터 MVP 이미지',width='800')
-        img['style']='display:block;width:100%;max-width:800px;height:auto;border:0'
-        banner_slot.clear()
-        banner_slot.append(img)
+    from .branding import get_branding, default_banner, contact_lines
+    branding=get_branding(con)
+    for slot,src,width in (('logo',branding.get('logo',''),320),('banner',branding.get('banner') or default_banner(template_path),800)):
+        node=soup.select_one('[data-image-slot="'+slot+'"]')
+        if node is not None and src:
+            img=soup.new_tag('img',src=src,alt='MEDiTIP 뉴스레터 '+('MVP 이미지' if slot=='banner' and not branding.get('banner') else slot),width=str(width))
+            img['style']='display:block;width:100%;max-width:'+str(width)+'px;height:auto;border:0'
+            node.clear()
+            node.append(img)
+    contact=soup.select_one('[data-contact-slot]')
+    if contact:
+        contact.clear()
+        for line in ['MEDiTIP 뉴스레터 · 의약품 시장 정보 제공']+contact_lines(branding):
+            if contact.contents:contact.append(soup.new_tag('br'))
+            contact.append(line)
     first=soup.select_one('#i8voq4');second=soup.select_one('#icsna')
     if not first or not second:raise ValueError('Original 892 TOP layout markers not found')
     first.replace_with(BeautifulSoup(top_table(tops),'html.parser'))
