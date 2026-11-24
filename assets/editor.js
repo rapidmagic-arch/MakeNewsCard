@@ -144,7 +144,7 @@ function showCollection(j){
   if(x.official_total!=null)html+='<p>'+esc(sourceLabel[x.source]||x.source)+' · 공식 조회 '+x.official_total+'건 · 등록 '+x.records+'건'+(x.cancelled_only?' · 취소/취하만 해당 '+x.cancelled_only+'건 제외':'')+'</p>';if(x.status==='success'&&!critical.length)continue;
   if(Number(x.records||0)!==0 && x.status!=='failed' && !critical.length)continue;
   html+='<div class="collection-problem"><b>'+esc(sourceLabel[x.source]||x.source)+'</b> · '+(x.status==='failed'?'오류':Number(x.records||0)===0?'0건':'확인 필요')+' · '+Number(x.records||0)+'건</div>';
-  if(critical.length)html+='<ul>'+critical.map(y=>'<li>'+esc(y)+'</li>').join('')+'</ul>';
+  if(critical.length)html+='<ul>'+critical.map(y=>'<li>'+esc(String(y).replace(/No article links parsed on page (\d+); selector needs validation/i,'$1페이지: 기사 링크 미확인 · 마지막 페이지인지 구조 변경인지 확인 필요'))+'</li>').join('')+'</ul>';
  }
  $('collectionResults').hidden=!html;
  $('collectionResults').innerHTML=html;
