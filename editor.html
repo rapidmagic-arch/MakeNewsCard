@@ -305,7 +305,7 @@ function proposedSection(x){return x.source_group==='industry'&&titleNeedsReview
 function qualityMatch(x,key){if(key==='all')return true;if(key==='title')return titleNeedsReview(x);if(key==='date')return !x.published_at;if(key==='period')return Boolean(x.published_at&&(x.published_at<db.edition.period_start||x.published_at>db.edition.period_end));if(key==='proposal')return x.source_group==='industry'&&proposedSection(x)==='industry.unclassified';if(key==='publication')return x.source_group==='industry'&&(x.section_override||x.section)==='industry.unclassified';if(key==='medicaltimes')return x.source_key==='medicaltimes'&&['title','date','period','proposal','publication'].some(k=>qualityMatch(x,k));return false}
 function safeOriginalLink(x){return /^https?:\/\//i.test(x.url||'')?'<a class="button original-link" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">원문 확인 ↗</a>':''}
 function candidateSection(x){return x.section_override||proposedSection(x)}
-function hasAi(x){return x.ai_score!==null||x.ai_reason!==null||x.ai_section!==null||Boolean(x.ai_summary)}
+function hasAi(x){return x.ai_score!=null||x.ai_reason!=null||x.ai_section!=null||Boolean(x.ai_summary)}
 function isSuggested(x){if(titleNeedsReview(x))return false;return hasAi(x)?Boolean(x.ai_recommended):Boolean(x.rule_recommended)}
 function industryRows(){return db.items.filter(x=>x.source_group==='industry')}
 function groupLabel(id){return reviewGroups.find(g=>g.id===id)?.label||'그룹 미지정'}
