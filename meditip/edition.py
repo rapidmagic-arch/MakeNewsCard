@@ -283,7 +283,7 @@ def repair_medicaltimes_metadata(con,edition_id,item_id,expected_sha,metadata,co
     row=dict(row)
     if row['content_sha']!=expected_sha:raise ValueError('원본이 변경되었습니다. 다시 확인하세요.')
     title=metadata['title'];published=metadata['published_at']
-    if title_needs_review({'source_key':'medicaltimes','title':title}) or norm_date(published)!=published:
+    if title_needs_review({'source_key':'medicaltimes','title':title}) or not isinstance(published,str) or norm_date(published)!=published:
         raise ValueError('원문 메타데이터 검증 실패')
     changed=(title!=row['title'] or published!=row['published_at'] or row['verification']=='needs_title_review')
     prior=json.loads(row['original_metadata'] or '{}')
