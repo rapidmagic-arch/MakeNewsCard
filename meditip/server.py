@@ -16,7 +16,8 @@ import yaml
 
 from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail
 from .company import register_company, set_company_order
-from .branding import public_branding, save_branding
+from .branding import public_branding, save_branding, get_branding, IMAGES
+from .managed_files import ManagedFiles, workspace_for_db, safe_stem
 from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
 from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai, repair_medicaltimes_metadata
@@ -41,10 +42,15 @@ def _dates(start, end):
 
 
 def serve(db_path, template_path, editor_path, edition_id, port=8765,
-          sources_path=None, editorial_path=None):
+          sources_path=None, editorial_path=None, workspace=None):
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
-    load_project_env(root)
+    workspace=Path(workspace).resolve() if workspace is not None else workspace_for_db(db_path)
+    load_project_env(workspace)
+    managed=ManagedFiles(workspace)
+    for name in ('meditip-banner-hd.jpg','meditip-footer-hd.jpg','meditip-mvp-banner.jpg'):
+        asset=root/'assets'/'newsletter'/name
+        if asset.is_file():managed.save('branding/defaults',name,asset.read_bytes(),'.jpg')
     editor = read_editor(editor_path)
     editor_js = (root/'assets'/'editor.js').read_text(encoding='utf8')
     editor_css = (root/'assets'/'editor.css').read_text(encoding='utf8')
@@ -56,6 +62,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     with connect(db_path) as con:
         editorial_defaults=yaml.safe_load(editorial_path.read_text(encoding='utf8')) or {}
         init_groups(con,editorial_defaults.get('industry_section_keywords'))
+        branding=get_branding(con)
+        for role in IMAGES:
+            if branding.get(role):managed.brand_image(role,branding[role])
         if get_edition(con,edition_id)['status']=='draft':
             prepare(con, edition_id, with_groups(con,editorial_defaults))
     template_path = str(template_path)
@@ -256,6 +265,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'error':'확정된 뉴스레터가 없거나 접근할 수 없어.'},404)
                     else:
                         filename='newsletter_archive.html' if params.get('download',['0'])[0]=='1' else None
+                        if filename:managed.export_file(eid,'confirmed','newsletter',html,'.html')
                         self._respond(200,html,'text/html; charset=utf-8',download=filename)
                     return
                 if p == '/api/editions':
@@ -275,7 +285,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
-                                'review_groups':groups,'branding':branding,
+                                'review_groups':groups,'branding':branding,'managed_files':managed.info(),
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
                     return
@@ -298,37 +308,47 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json(job_snapshot())
                     return
                 if p in ('/export/html','/preview/html'):
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        html = confirmed_html(con,active['edition'])
-                        if html is None:
-                            html = render(con,active['edition'],template_path,preview=(p == '/preview/html'))
+                        html = confirmed_html(con,eid)
+                        frozen=html is not None
+                        if not frozen:
+                            html = render(con,eid,template_path,preview=(p == '/preview/html'))
+                    if p == '/export/html':managed.export_file(eid,'confirmed' if frozen else 'draft','newsletter',html,'.html')
                     self._respond(200, html, 'text/html; charset=utf-8',
-                                  download=f'newsletter_{active["edition"]}.html' if p == '/export/html' else None)
+                                  download=f'newsletter_{safe_stem(eid)}.html' if p == '/export/html' else None)
                     return
                 if p == '/export/snapshot':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        row=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(active['edition'],)).fetchone()
+                        row=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(eid,)).fetchone()
                     if not row:
                         self._json({'error':'확정본이 없어.'},404)
                     else:
+                        managed.export_file(eid,'confirmed','snapshot',row['raw_json'],'.json')
                         self._respond(200,row['raw_json'],'application/json; charset=utf-8',
-                                      download=f'confirmed_{active["edition"]}.json')
+                                      download=f'confirmed_{safe_stem(eid)}.json')
                     return
                 if p == '/export/ai':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        payload=review_payload(con,active['edition'])
-                    self._respond(200,json.dumps(payload,ensure_ascii=False,indent=2),
-                                  'application/json; charset=utf-8',download=f'ai_candidates_{active["edition"]}.json')
+                        payload=review_payload(con,eid)
+                    body=json.dumps(payload,ensure_ascii=False,indent=2)
+                    managed.export_file(eid,'ai','candidates',body,'.json')
+                    self._respond(200,body,'application/json; charset=utf-8',download=f'ai_candidates_{safe_stem(eid)}.json')
                     return
                 if p == '/export/json':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        obj = {'edition': get_edition(con, active['edition']),
-                               'items': edition_rows(con, active['edition'])}
-                    self._respond(200, json.dumps(obj, ensure_ascii=False, indent=2),
-                                  'application/json; charset=utf-8',
-                                  download=f'newsletter_{active["edition"]}.json')
+                        obj = {'edition': get_edition(con,eid),'items':edition_rows(con,eid)}
+                        frozen=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(eid,)).fetchone()
+                    body=frozen['raw_json'] if frozen else json.dumps(obj,ensure_ascii=False,indent=2)
+                    managed.export_file(eid,'confirmed' if frozen else 'draft','data',body,'.json')
+                    self._respond(200,body,'application/json; charset=utf-8',download=f'newsletter_{safe_stem(eid)}.json')
                     return
                 self._json({'error': 'Not found'}, 404)
+            except OSError:
+                self._json({'error':'관리 파일 저장 또는 읽기 실패 · 폴더 권한 및 여유 공간을 확인하세요.'},500)
             except (ValueError, KeyError, TypeError) as exc:
                 self._json({'error': str(exc)}, 400)
 
@@ -347,13 +367,19 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 p = urlsplit(self.path).path
-                max_payload = 4_200_000 if p == '/api/branding/save' else (4_000_000 if p == '/api/approval/import' else (1_000_000 if p == '/api/ai/import' else 100_000))
+                max_payload = 4_200_000 if p == '/api/branding/save' else (4_000_000 if p == '/api/approval/import' else (1_500_000 if p == '/api/ai/import' else 100_000))
                 if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
                 if not isinstance(obj, dict):
                     raise ValueError('JSON object required')
                 p = urlsplit(self.path).path
+                if p == '/api/files/open':
+                    import os
+                    if os.name!='nt':raise ValueError('Windows에서만 폴더 열기를 지원합니다.')
+                    os.startfile(str(managed.root))
+                    self._json({'ok':True})
+                    return
                 if p == '/api/collect':
                     keys = obj.get('sources')
                     mode = obj.get('method', 'board')
@@ -509,7 +535,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 with lock, connect(db_path) as con:
                     if p == '/api/branding/save':
-                        self._json({'ok':True,'branding':save_branding(con,obj)})
+                        self._json({'ok':True,'branding':save_branding(con,obj,managed)})
                         return
                     if p == '/api/company/register':
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
@@ -535,10 +561,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
                             raise ValueError('Unknown approval category')
                         ensure_single_approval_mode(con,kind,ed,'csv')
+                        saved=managed.import_file(ed['id'],'approval/'+kind,obj.get('filename') or kind,raw,'.csv')
                         result=import_approval_bytes(con,raw,kind,edition=ed)
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                         prepare(con,ed['id'],with_groups(con,rules))
-                        self._json({'ok':True,**result})
+                        self._json({'ok':True,**result,'managed_file':saved})
                         return
                     if p == '/api/edition/publication':
                         require_draft(con,active['edition'])
@@ -575,8 +602,22 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'ok':True,**result})
                         return
                     if p == '/api/ai/import':
-                        touched=import_ai(con,active['edition'],obj)
-                        self._json({'ok':True,'analysed':touched})
+                        import base64,binascii
+                        eid=active['edition']
+                        require_draft(con,eid)
+                        if 'content' in obj:
+                            try:raw=base64.b64decode(obj['content'],validate=True)
+                            except (ValueError,TypeError,binascii.Error):raise ValueError('Invalid JSON file')
+                            if not raw or len(raw)>1_000_000:raise ValueError('JSON size must be 1..1000000 bytes')
+                            payload=json.loads(raw.decode('utf-8-sig'))
+                        else:
+                            payload=obj
+                            raw=json.dumps(obj,ensure_ascii=False,indent=2).encode('utf8')
+                        if not isinstance(payload,dict) or not isinstance(payload.get('items'),list):
+                            raise ValueError('items array required')
+                        saved=managed.import_file(eid,'ai',obj.get('filename') or 'ai_result',raw,'.json')
+                        touched=import_ai(con,eid,payload)
+                        self._json({'ok':True,'analysed':touched,'managed_file':saved})
                         return
                     if p == '/api/decision':
                         update_decision(con, active['edition'], obj['item_id'], obj['changes'])
@@ -593,6 +634,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'error': 'Unknown endpoint'}, 404)
                         return
                 self._json({'ok': True})
+            except OSError:
+                self._json({'error':'관리 파일 저장 또는 읽기 실패 · 폴더 권한 및 여유 공간을 확인하세요.'},500)
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
                 self._json({'error': str(exc)}, 400)
 
