@@ -13,17 +13,12 @@ SAMPLE_CONTACT={'contact_name':'최서영','phone':'070-7733-0340','email':'sych
                 'address':'서울특별시 강남구 개포로 619, 10층 (개포동, 서울강남우체국빌딩) 우.06336',
                 'website':'http://meditip.co.kr/'}
 
-def get_branding(con):
-    row=con.execute("SELECT value FROM newsletter_branding WHERE key='branding'").fetchone()
+def get_default_contact(con):
+    row=con.execute("SELECT value FROM newsletter_branding WHERE key='default_contact'").fetchone()
     return json.loads(row['value']) if row else dict(SAMPLE_CONTACT)
 
-def public_branding(con):
-    data=get_branding(con)
-    return {**{key:data.get(key,'') for key in FIELDS},
-            **{key+'_custom':bool(data.get(key)) for key in IMAGES},'sample_contact':dict(SAMPLE_CONTACT)}
-
-def save_branding(con,obj,managed=None):
-    data=get_branding(con)
+def validated_contact(obj):
+    data={}
     for key,limit in FIELDS.items():
         value=obj.get(key,'')
         if not isinstance(value,str) or len(value)>limit or any(ord(c)<32 for c in value):
@@ -35,6 +30,27 @@ def save_branding(con,obj,managed=None):
         url=urlsplit(data['website'])
         if url.scheme not in ('https','http') or not url.hostname or url.username or url.password:
             raise ValueError('Invalid website URL')
+    return data
+
+def save_default_contact(con,obj):
+    data=validated_contact(obj)
+    con.execute("INSERT INTO newsletter_branding VALUES('default_contact',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (json.dumps(data,ensure_ascii=False),))
+    con.commit()
+    return data
+
+def get_branding(con):
+    row=con.execute("SELECT value FROM newsletter_branding WHERE key='branding'").fetchone()
+    return json.loads(row['value']) if row else get_default_contact(con)
+
+def public_branding(con):
+    data=get_branding(con)
+    return {**{key:data.get(key,'') for key in FIELDS},
+            **{key+'_custom':bool(data.get(key)) for key in IMAGES},'sample_contact':dict(SAMPLE_CONTACT),'default_contact':get_default_contact(con)}
+
+def save_branding(con,obj,managed=None):
+    data=get_branding(con)
+    data.update(validated_contact(obj))
     for key in IMAGES:
         image=obj.get(key)
         if image is None:continue
