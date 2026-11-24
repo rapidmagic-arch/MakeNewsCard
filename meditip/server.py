@@ -299,7 +299,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
-                                'review_groups':groups,'branding':branding,'managed_files':managed.info(),
+                                'review_groups':groups,'branding':branding,'managed_files':managed.info(),'desktop_lifecycle':lifecycle is not None,
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
                     return
