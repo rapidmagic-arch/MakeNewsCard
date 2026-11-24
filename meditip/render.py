@@ -133,11 +133,11 @@ def approval_table(items,kind,final=False):
         raw=json.loads(r.get('original_metadata') or '{}').get('csv_row') or {}
         vals=[]
         for f in fields:
-            aliases={'승인일':['승인일자','허가일','허가일자'],'임상시험제목':['임상시험 제목'],
+            aliases={'승인일':['승인일자','허가일','허가일자'],'허가일':['허가일자','승인일','승인일자'],'임상시험제목':['임상시험 제목'],
                      '임상시험 단계':['임상시험단계','단계'], '제품명':['품목명','제품명칭']}
             value=raw.get(f) or next((raw.get(x) for x in aliases.get(f,[]) if raw.get(x)),None)
             if not value and f in ('임상시험제목','제품명'):value=r['title']
-            if not value and f=='승인일':value=r.get('published_at')
+            if not value and f in ('승인일','허가일'):value=r.get('published_at')
             vals.append('<td style="padding:6px;vertical-align:top">'+txt(value or '—')+'</td>')
         parts.append('<tr>'+''.join(vals)+'</tr>')
     parts.append('</tbody></table>')
@@ -175,7 +175,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     selected=validate_template_id(template_id or edition.get('template_id') or 'classic')
     if selected=='outlook_cards':
         return render_outlook_cards(con,edition_id,final=final,preview=preview)
-    from .company import company_rows
+    from .company import company_output_rows
     rows=edition_rows(con,edition_id)
     publish_view=final or preview
     if publish_view:
@@ -199,7 +199,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     first.replace_with(BeautifulSoup(top_table(tops),'html.parser'))
     second.decompose()
     replacements={
-       'company_news':company_cards([r for r in company_rows(rows) if r['include_detail']]),
+       'company_news':company_cards(company_output_rows(rows)),
        'mfds_all':group_html(rows,'mfds',publish_view),
        'industry_all':group_html(rows,'industry',publish_view)}
     for name,content in replacements.items():
@@ -241,7 +241,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     for t in list(soup.find_all(string=True)):
         val=str(t)
         if '892호' in val and '발간수기' in val:
-            t.replace_with(('MEDiTIP '+issue_label+' (' if final else 'MEDiTIP 뉴스레터 편집 초안 (')+edition['period_start']+' ~ '+edition['period_end']+')')
+            t.replace_with('MEDiTIP 뉴스레터 · '+issue_label)
         elif '11월' in val and '둘째 주' in val:
             if 'Meditip 주요' in val:
                 t.replace_with('이번 호 Meditip 주요 소식')
