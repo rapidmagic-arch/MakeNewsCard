@@ -78,6 +78,7 @@ def setup(con):
       ai_recommended INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(edition_id,item_id)
     );
+    CREATE TABLE IF NOT EXISTS newsletter_branding (key TEXT PRIMARY KEY,value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS edition_confirmations (
       edition_id TEXT PRIMARY KEY REFERENCES editions(id),
       confirmed_at TEXT NOT NULL, confirmed_by TEXT NOT NULL, issue_number TEXT,
