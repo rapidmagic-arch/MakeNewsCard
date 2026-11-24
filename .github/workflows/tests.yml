@@ -103,4 +103,5 @@ jobs:
             .env.example
             USER_MANUAL.md
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
