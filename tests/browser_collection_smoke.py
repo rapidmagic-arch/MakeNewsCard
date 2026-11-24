@@ -4,6 +4,7 @@ backend collection API is checked separately in test_collection_ui.py.
 import json
 import tempfile
 from pathlib import Path
+from meditip.ui_assets import read_editor
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -26,7 +27,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
 specs = list(source_specs(yaml.safe_load((ROOT/'config'/'sources.yaml').read_text())))
 sources = [{'key': s['key'], 'group': s['group'], 'rss_available': bool(s.get('rss_id'))} for s in specs]
-html = (ROOT/'editor.html').read_text(encoding='utf8')
+html = read_editor(ROOT/'editor.html',inline_script=True)
 html = html.replace('<link rel="stylesheet" href="/assets/editor.css">','<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
 mock = '''<script>
 window.__seed = SEED;
