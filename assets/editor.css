@@ -405,3 +405,7 @@ body{background:var(--ui-bg);color:var(--ui-ink)}
 .app-main .queue-tab[data-queue="top"]{color:#80530f}
 @media(max-width:1100px){.app-main .selection-panels{grid-template-columns:1fr}.app-main .approval-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.app-main .approval-controls{grid-template-columns:1fr}.app-main .selection-panels #companyList .rankrow{grid-template-columns:20px minmax(0,1fr) 30px 30px}.app-main .selection-panels #companyList .rankrow>.tag{grid-column:2;grid-row:2}.app-main .selection-panels #top .rankrow{grid-template-columns:20px minmax(0,1fr) 30px 30px 30px}}
+
+.app-main .managed-path{font:13px/1.6 Consolas,monospace;background:#f4f7fa;border:1px solid var(--ui-line-soft);border-radius:8px;padding:10px 12px;overflow-wrap:anywhere;user-select:all}
+.app-main .managed-file-folders>div{border:1px solid var(--ui-line-soft);border-radius:8px;padding:12px;color:var(--ui-ink)}
+.app-main .managed-file-folders p{font-size:12px;color:var(--ui-muted);margin:5px 0 0}
