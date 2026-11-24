@@ -42,7 +42,7 @@ def _dates(start, end):
 
 
 def serve(db_path, template_path, editor_path, edition_id, port=8765,
-          sources_path=None, editorial_path=None, workspace=None):
+          sources_path=None, editorial_path=None, workspace=None, lifecycle=None):
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
     workspace=Path(workspace).resolve() if workspace is not None else workspace_for_db(db_path)
@@ -208,6 +208,14 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             return self.headers.get('Host', '') in (f'127.0.0.1:{port}', f'localhost:{port}')
 
         def do_GET(self):
+            if lifecycle is None:return self._handle_get()
+            if not lifecycle.enter():
+                self._json({'error':'프로그램 종료 중입니다.'},503)
+                return
+            try:return self._handle_get()
+            finally:lifecycle.leave()
+
+        def _handle_get(self):
             if not self._local_host():
                 self._json({'error': 'Localhost only'}, 403)
                 return
@@ -362,6 +370,14 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 self._json({'error': str(exc)}, 400)
 
         def do_POST(self):
+            if lifecycle is None:return self._handle_post()
+            if not lifecycle.enter():
+                self._json({'error':'프로그램 종료 중입니다.'},503)
+                return
+            try:return self._handle_post()
+            finally:lifecycle.leave()
+
+        def _handle_post(self):
             if not self._local_host():
                 self._json({'error': 'Localhost only'}, 403)
                 return
@@ -383,6 +399,12 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 if not isinstance(obj, dict):
                     raise ValueError('JSON object required')
                 p = urlsplit(self.path).path
+                if p == '/api/app/shutdown' and lifecycle is not None:
+                    if not lifecycle.request_stop(from_request=True):
+                        self._json({'error':'수집·분석 또는 요청 처리 중입니다. 완료 후 종료하세요.'},409)
+                        return
+                    self._json({'ok':True})
+                    return
                 if p == '/api/files/open':
                     try:managed.open_folder()
                     except OSError as exc:raise ValueError('탐색기 실행 실패 · 경로 복사로 직접 열어 주세요.') from exc
@@ -653,7 +675,17 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
         def log_message(self, *args):
             pass
 
-    server = ThreadingHTTPServer(('127.0.0.1', int(port)), Handler)
+    class DesktopHTTPServer(ThreadingHTTPServer):
+        daemon_threads=False
+        def get_request(self):
+            sock,addr=super().get_request()
+            sock.settimeout(15)
+            return sock,addr
+
+    server = (DesktopHTTPServer if lifecycle is not None else ThreadingHTTPServer)(('127.0.0.1', int(port)), Handler)
+    def busy():
+        with lock:return job['state']=='running' or ai_job['state']=='running'
+    if lifecycle is not None:lifecycle.bind(server,busy)
     print(f'편집 화면: http://127.0.0.1:{port}/  (Ctrl+C 종료)')
     try:
         server.serve_forever()
