@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import yaml
 from .db import edition_rows, get_edition
+from .metadata_quality import title_needs_review
 
 KEYWORDS={
     'mfds.regulations':(75,'규제·고시 및 행정예고'),
@@ -27,7 +28,7 @@ INDUSTRY_HINTS={
 
 def group_proposal(row,config=None):
     """Classify a metadata candidate using user groups; never commit an editorial decision."""
-    if row['verification'] == 'needs_title_review' or len(row['title'] or '') > 190:
+    if title_needs_review(row):
         return 'industry.unclassified','review_needed',False,'제목 추출 검증 필요 · 원본 확인 후 분류',None
     text=((row['title'] or '')+' '+(row['summary_source'] or '')).casefold()
     if config is not None and 'review_groups' in config:
@@ -71,7 +72,7 @@ def industry_proposal(row,config=None):
 
 def proposal_for(row):
     """Imported GPT data takes precedence only when actually supplied."""
-    if row.get('verification') == 'needs_title_review' or len(row.get('title') or '') > 190:
+    if title_needs_review(row):
         return False, row.get('section_override') or row['section']
     imported=(row.get('ai_score') is not None or row.get('ai_reason') is not None
               or row.get('ai_section') is not None or bool(row.get('ai_summary')))
@@ -138,6 +139,23 @@ def rule_score(row, config=None):
         if key.casefold() in row['title'].casefold():score+=bonus;reason+=f' · {key}'
     return score,reason
 
+def refresh_rule_proposal(con,edition_id,r,config=None):
+    score,reason=rule_score(r,config)
+    if r['source_group']=='industry':
+        section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
+        if recommended:
+        # Section priority is applied to candidates, not to article inclusion.
+        proposed_base=int((config or {}).get('section_priority',{}).get(
+            section,KEYWORDS.get(section,(12,''))[0]))
+        score=max(score,proposed_base)
+        reason += ' · '+hint
+    else:
+        section,relevance,recommended,rule_group_id=None,None,False,None
+    con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?,rule_group_id=?
+               WHERE edition_id=? AND item_id=?''',
+            (score,reason,section,relevance,int(recommended),rule_group_id,edition_id,r['id']))
+
+
 def prepare(con,edition_id,config=None,extra_ids=None):
     from .workflow import require_draft
     edition=require_draft(con,edition_id)
@@ -159,19 +177,7 @@ def prepare(con,edition_id,config=None,extra_ids=None):
         con.execute('''INSERT OR IGNORE INTO decisions
             (edition_id,item_id,include_detail,rule_score,rule_reason)
             VALUES (?,?,?,?,?)''',(edition_id,r['id'],include,score,reason))
-        if r['source_group']=='industry':
-            section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
-            if recommended:
-                # Section priority is applied to candidates, not to article inclusion.
-                proposed_base=int((config or {}).get('section_priority',{}).get(
-                    section,KEYWORDS.get(section,(12,''))[0]))
-                score=max(score,proposed_base)
-            reason += ' · '+hint
-        else:
-            section,relevance,recommended,rule_group_id=None,None,False,None
-        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?,rule_group_id=?
-                       WHERE edition_id=? AND item_id=?''',
-                    (score,reason,section,relevance,int(recommended),rule_group_id,edition_id,r['id']))
+        refresh_rule_proposal(con,edition_id,r,config)
     con.commit()
     # TOP scores are suggestions, never automatic editorial selection.
     # Historic selected TOP entries remain in decisions unchanged.
