@@ -10,7 +10,7 @@ import threading
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, quote
 
 import yaml
 
@@ -194,7 +194,10 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             self.send_header('Content-Security-Policy',
                              "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
             if download:
-                self.send_header('Content-Disposition', f'attachment; filename="{download}"')
+                fallback=download.encode('ascii','replace').decode('ascii').replace('?','_')
+                disposition=f'attachment; filename="{fallback}"'
+                if fallback!=download:disposition+="; filename*=UTF-8''"+quote(download,safe='')
+                self.send_header('Content-Disposition',disposition)
             self.end_headers()
             self.wfile.write(body)
 
@@ -209,6 +212,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 self._json({'error': 'Localhost only'}, 403)
                 return
             p = urlsplit(self.path).path
+            if (p.startswith('/export/') or (p=='/api/library/html' and parse_qs(urlsplit(self.path).query).get('download')==['1'])) and self.headers.get('Sec-Fetch-Site')=='cross-site':
+                self._json({'error':'Cross-site export not allowed'},403)
+                return
             try:
                 if p == '/':
                     self._respond(200, editor.replace('__LOCAL_TOKEN__', token), 'text/html; charset=utf-8')
@@ -342,7 +348,10 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         obj = {'edition': get_edition(con,eid),'items':edition_rows(con,eid)}
                         frozen=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(eid,)).fetchone()
-                    body=frozen['raw_json'] if frozen else json.dumps(obj,ensure_ascii=False,indent=2)
+                    if frozen:
+                        snapshot=json.loads(frozen['raw_json'])
+                        obj={'edition':snapshot['edition'],'items':snapshot['items']}
+                    body=json.dumps(obj,ensure_ascii=False,indent=2)
                     managed.export_file(eid,'confirmed' if frozen else 'draft','data',body,'.json')
                     self._respond(200,body,'application/json; charset=utf-8',download=f'newsletter_{safe_stem(eid)}.json')
                     return
