@@ -89,7 +89,7 @@ def test_ui_collect_and_new_edition_without_network(tmp_path, monkeypatch):
     else:
         pytest.fail('local HTTP server did not start')
 
-    token = re.search(r"const TOKEN='([^']+)'", html).group(1)
+    token = re.search(r'name="local-token" content="([^"]+)"', html).group(1)
     assert '실제 자료 수집' in html
     assert req('GET', '/api/sources')[0] == 200
     assert req('POST', '/api/collect', {'sources': ['press']})[0] == 403
