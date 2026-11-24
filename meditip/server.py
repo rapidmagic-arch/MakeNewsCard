@@ -369,8 +369,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     if any(configured[k]['group'] == 'industry' for k in keys) and obj.get('rights_acknowledged') is not True:
                         raise ValueError('Check media website access/usage conditions before collection')
                     with lock:
-                        if job['state'] == 'running':
-                            self._json({'error': 'Collection already running'}, 409)
+                        if job['state'] == 'running' or ai_job['state']=='running':
+                            self._json({'error': 'Collection or analysis already running'}, 409)
                             return
                         with connect(db_path) as con:
                             edition = require_draft(con, active['edition'])
@@ -457,8 +457,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 if p == '/api/ai/review':
                     with lock:
-                        if ai_job['state']=='running':
-                            self._json({'error':'AI 분석이 이미 진행 중이야.'},409);return
+                        if ai_job['state']=='running' or job['state']=='running':
+                            self._json({'error':'수집 또는 AI 분석이 이미 진행 중입니다.'},409);return
                         with connect(db_path) as con:
                             require_draft(con,active['edition'])
                             payload=review_payload(con,active['edition'],obj.get('ids'))
