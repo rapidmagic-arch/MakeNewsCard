@@ -39,3 +39,21 @@ def test_brand_copies_keep_database_authority_and_previous_versions(tmp_path):
         save_branding(con,{'banner':''},managed)
         assert not get_branding(con).get('banner')
         assert images[0].read_bytes()==raw
+
+
+def test_default_contact_independent_and_persistent(tmp_path):
+    from meditip.branding import get_default_contact,save_default_contact,public_branding
+    path=tmp_path/'data'/'newsletter.db'
+    with connect(path) as con:
+        setup(con)
+        old=get_branding(con)
+        saved=save_default_contact(con,{'contact_name':'New default','email':'new@example.org'})
+        assert get_branding(con)==old
+        assert saved==get_default_contact(con)
+        with pytest.raises(ValueError):save_default_contact(con,{'email':'invalid'})
+        assert get_default_contact(con)==saved
+        save_branding(con,{'contact_name':'Current publisher'})
+        assert get_default_contact(con)==saved
+    with connect(path) as con:
+        assert public_branding(con)['default_contact']==saved
+        assert get_branding(con)['contact_name']=='Current publisher'
