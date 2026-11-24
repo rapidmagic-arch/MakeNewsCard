@@ -130,11 +130,12 @@ def approval_table(items,kind,final=False):
     parts=['<table role="presentation" width="100%" cellpadding="4" cellspacing="0" border="1" style="border-collapse:collapse;border:1px solid #c5d4df;font:11px/1.5 Malgun Gothic,Arial,sans-serif">',
            '<thead><tr>'+''.join('<th style="background:#e5eff8;color:#123953">'+txt(x)+'</th>' for x in fields)+'</tr></thead><tbody>']
     for r in items:
-        raw=json.loads(r.get('original_metadata') or '{}').get('csv_row') or {}
+        meta=json.loads(r.get('original_metadata') or '{}')
+        raw=meta.get('approval_row') or meta.get('csv_row') or {}
         vals=[]
         for f in fields:
             aliases={'승인일':['승인일자','허가일','허가일자'],'허가일':['허가일자','승인일','승인일자'],'임상시험제목':['임상시험 제목'],
-                     '임상시험 단계':['임상시험단계','단계'], '제품명':['품목명','제품명칭']}
+                     '임상시험 단계':['임상시험단계','단계'], '제품명':['품목명','제품명칭'],'대상질환':['대상질환명']}
             value=raw.get(f) or next((raw.get(x) for x in aliases.get(f,[]) if raw.get(x)),None)
             if not value and f in ('임상시험제목','제품명'):value=r['title']
             if not value and f in ('승인일','허가일'):value=r.get('published_at')
@@ -142,7 +143,8 @@ def approval_table(items,kind,final=False):
         parts.append('<tr>'+''.join(vals)+'</tr>')
     parts.append('</tbody></table>')
     if not final:
-        parts.append('<p style="font-size:11px;color:#986b43">담당자 제공 CSV 기준 · 공식 원본 건수·데이터 정확성은 미검증</p>')
+        label='의약품안전나라 공개 조회 목록' if all(r.get('verification')=='official_public_list' for r in items) else '담당자 제공 CSV 기준 · 공식 원본 건수·데이터 정확성은 미검증'
+        parts.append('<p style="font-size:11px;color:#986b43">'+txt(label)+'</p>')
     return ''.join(parts)
 
 
@@ -185,15 +187,18 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
                 row['ai_summary']=None
     tops=top_output_rows(rows, edition['top_target'])
     soup=BeautifulSoup(Path(template_path).read_text(encoding='utf-8'),'html.parser')
-    from .branding import get_branding, default_banner, contact_lines
+    from .branding import get_branding, default_banner, default_footer, contact_lines
     branding=get_branding(con)
-    for slot,src,width in (('logo',branding.get('logo',''),320),('banner',branding.get('banner') or default_banner(template_path),800)):
+    for slot,src,width in (('logo',branding.get('logo',''),320),('banner',branding.get('banner') or default_banner(template_path),800),('footer',branding.get('footer') or default_footer(template_path),800)):
         node=soup.select_one('[data-image-slot="'+slot+'"]')
         if node is not None and src:
             img=soup.new_tag('img',src=src,alt='MEDiTIP 뉴스레터 '+('MVP 이미지' if slot=='banner' and not branding.get('banner') else slot),width=str(width))
             img['style']='display:block;width:100%;max-width:'+str(width)+'px;height:auto;border:0'
             node.clear()
             node.append(img)
+    if not branding.get('logo') and not branding.get('banner') and default_banner(template_path):
+        logo=soup.select_one('[data-image-slot="logo"]')
+        if logo:logo.clear()
     contact=soup.select_one('[data-contact-slot]')
     if contact:
         contact.clear()
@@ -266,7 +271,9 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
                 t.replace_with('')
     publication=soup.select_one('[data-publication-slot]')
     if publication:
-        publication.string=' · '.join(x for x in (issue_label, ('발행일 '+edition['publication_date']) if edition.get('publication_date') else '', '수집 기간 '+edition['period_start']+' ~ '+edition['period_end']) if x)
+        period=edition['period_start']+' ~ '+edition['period_end']
+        label=issue_label if edition.get('issue_number') or issue_label.replace(' ','')!=period.replace(' ','') else ''
+        publication.string=' · '.join(x for x in (label, ('발행일 '+edition['publication_date']) if edition.get('publication_date') else '', '수집 기간 '+period) if x)
     html=str(soup)
     if '{{' in html and '}}' in html:raise ValueError('Unresolved template slots remain')
     return html
