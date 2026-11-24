@@ -26,6 +26,7 @@ from .workflow import require_draft, confirm, confirmed_html, confirm_details, w
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
 from .app_config import load_project_env
 from .ui_assets import read_editor
+from .source_links import resolve_source_link, approval_search_url, SEARCH
 from .library import library_page, archived_html
 from .review_groups import init_groups, list_groups, save_group, delete_group, with_groups
 
@@ -228,8 +229,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         out_of_period = sum(bool(item.get('published_at')) and
                            not edition['period_start'] <= item['published_at'] <= edition['period_end'] for item in items)
                         confirmation = confirm_details(con,active['edition'])
+                        for item in items:
+                            item['original_url'],item['original_link_kind']=resolve_source_link(item)
+                        approval_links={kind:approval_search_url(kind,edition['period_start'],edition['period_end']) for kind in SEARCH}
                     self._json({'edition': edition, 'items': items, 'runs': runs,
-                                'confirmation':confirmation,'top_output_ids':top_output_ids,
+                                'confirmation':confirmation,'top_output_ids':top_output_ids,'approval_links':approval_links,
                                 'week_label':week_label(edition['period_start'],edition['period_end']),
                                 'run_total':total_runs,'undated_count':undated,
                                 'out_of_period_count':out_of_period})
