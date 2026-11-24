@@ -123,6 +123,7 @@
 <div class="actions"><button class="primary" id="saveReviewGroup">그룹 저장</button><button id="cancelReviewGroup">입력 초기화</button></div></div>
 <div class="actions"><button id="refreshReviewGroups">현재 초안에 분류 제안 다시 계산</button><span id="reviewGroupStatus" class="status" role="status"></span></div>
 </section>
+<section class="surface airy" style="margin-top:16px" aria-label="뉴스레터 발행 정보"><h3>뉴스레터 브랜드 및 연락처</h3><div class="form-row"><label>담당자<input id="brandContact" maxlength="80"></label><label>전화번호<input id="brandPhone" maxlength="80"></label><label>이메일<input id="brandEmail" type="email" maxlength="254"></label><label>홈페이지<input id="brandWebsite" type="url" maxlength="500"></label></div><label>회사 주소<input id="brandAddress" maxlength="300"></label><div class="form-row"><label>로고 (PNG/JPEG)<input id="brandLogo" type="file" accept="image/png,image/jpeg"></label><label>배너 (PNG/JPEG)<input id="brandBanner" type="file" accept="image/png,image/jpeg"></label></div><div class="form-row"><label class="checkline"><input id="resetLogo" type="checkbox"> 기본 로고로 복원</label><label class="checkline"><input id="resetBanner" type="checkbox"> MVP 배너로 복원</label></div><div class="actions"><button id="saveBranding" class="primary">발행 환경 저장</button><span id="brandingStatus" class="status" role="status"></span></div><p id="brandingImages" class="status"></p></section>
 <section class="surface airy" style="margin-top:16px"><h3>수집원 및 API 상태</h3><div id="settingSources" class="settings-details"></div>
 <p id="settingAi" class="status"></p></section></section>
 </main></div></div>
@@ -529,11 +530,15 @@ $('refreshReviewGroups').addEventListener('click',async()=>{
  if(!db||db.edition.status==='confirmed'){$('reviewGroupStatus').textContent='확정된 회차는 재분류할 수 없어.';return}
  try{const r=await api('/api/review-groups/recalculate',{});$('reviewGroupStatus').textContent='규칙 제안 '+r.candidates+'건 재계산 · 기존 수록/수동 편집 유지';await load();}catch(err){$('reviewGroupStatus').textContent=err.message}
 });
+const brandFields={contact_name:'brandContact',phone:'brandPhone',email:'brandEmail',address:'brandAddress',website:'brandWebsite'};
+function showBranding(data){for(const [key,id] of Object.entries(brandFields))$(id).value=data[key]||'';$('brandingImages').textContent='로고: '+(data.logo_custom?'사용자 이미지':'기본 텍스트')+' · 배너: '+(data.banner_custom?'사용자 이미지':'MVP 이미지')}
+function readBrandImage(file){return new Promise((resolve,reject)=>{if(!file||file.size>1000000||!['image/jpeg','image/png'].includes(file.type)){reject(Error('1MB 이하 PNG/JPEG 이미지를 선택하세요.'));return}const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('이미지 읽기 실패'));reader.readAsDataURL(file)})}
+$('saveBranding').addEventListener('click',async()=>{try{const payload=Object.fromEntries(Object.entries(brandFields).map(([k,id])=>[k,$(id).value.trim()]));for(const [key,fileId,resetId] of [['logo','brandLogo','resetLogo'],['banner','brandBanner','resetBanner']]){if($(resetId).checked&&$(fileId).files.length)throw Error('이미지 선택과 기본 복원을 동시에 지정할 수 없습니다.');if($(resetId).checked)payload[key]='';else if($(fileId).files.length)payload[key]=await readBrandImage($(fileId).files[0])}const res=await api('/api/branding/save',payload);showBranding(res.branding);for(const id of ['brandLogo','brandBanner'])$(id).value='';for(const id of ['resetLogo','resetBanner'])$(id).checked=false;$('brandingStatus').textContent='저장 완료 · 새 초안 출력에 적용'}catch(err){$('brandingStatus').textContent=err.message}});
 async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)throw Error('설정 조회 실패');const j=await r.json();
  $('settingSources').innerHTML=j.sources.map(s=>'<div>'+esc(s.group==='mfds'?'식약처':'언론')+' · '+esc(s.key)+' <span class="muted">'+esc(s.url)+'</span></div>').join('');
- reviewGroups=j.review_groups||[];renderReviewGroups();
+ reviewGroups=j.review_groups||[];renderReviewGroups();showBranding(j.branding||{});
  aiReady=Boolean(j.ai_api_available);
- $('runAi').disabled=!aiReady||db?.edition?.status==='confirmed';
+ $('runAi').disabled=!aiReady||db?.edition?.status==='confirmed'||lastAi==='running';
  $('settingAi').textContent=aiReady?'OPENAI_API_KEY 연결됨 · 유료 API 분석 가능':'OPENAI_API_KEY 미설정';
  if(!aiReady)$('aiJobStatus').textContent='API 미연결';}
 
@@ -542,7 +547,8 @@ $('runAi').addEventListener('click',async()=>{const ids=industryRows().map(x=>x.
  if(!confirm(ids.length+'건을 OpenAI API에 보내 분류 제안을 받을까? API 비용이 발생할 수 있어.'))return;
  try{await api('/api/ai/review',{ids});lastAi='running';$('runAi').disabled=true;$('aiJobStatus').textContent='GPT 분석 중 · '+ids.length+'건'}
  catch(e){$('aiJobStatus').textContent=e.message}});
-let lastAi='idle';async function pollAiJob(){try{const r=await fetch('/api/ai/job');if(!r.ok)return;const j=await r.json();
+let lastAi='idle';async function pollAiJob(){try{const r=await fetch('/api/ai/job');if(!r.ok)return;let j=await r.json();
+ if(db?.edition&&j.edition_id&&j.edition_id!==db.edition.id)j={state:'idle'};
  $('aiJobStatus').textContent=j.state==='running'?'GPT 분석 진행 중 · '+j.total+'건':j.state==='failed'?'GPT 분석 실패 · '+j.error:j.state==='finished'?'GPT 제안 '+j.processed+'건 저장':(!aiReady?'API 미연결':'분석 대기');
  if(lastAi!==j.state&&j.state==='finished')await load();lastAi=j.state;$('runAi').disabled=!aiReady||db?.edition?.status==='confirmed'||j.state==='running';}catch(e){}}
 setInterval(pollAiJob,2500);
