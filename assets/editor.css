@@ -54,10 +54,10 @@ settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;l
 .collect-advanced summary{cursor:pointer;font-size:13px;font-weight:650;color:#3c6588}
 .collect-advanced input[type=number]{width:100%}
 .collection-actions{margin:16px 0 10px}
-.collector .collection-problems{max-height:215px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #e5c3c3;border-radius:10px;background:#fff8f8;padding:12px;margin:14px 0}
-.collector .collection-problems .collection-problem{padding:7px 0;border-bottom:1px solid #f0dada}
-.collector .collection-problems .collection-problem:last-of-type{border-bottom:none}
-.collector .collection-problems ul{margin:3px 0 8px;padding-left:21px}
+.collection-log .collection-problems{max-height:215px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #e5c3c3;border-radius:10px;background:#fff8f8;padding:12px;margin:14px 0}
+.collection-log .collection-problems .collection-problem{padding:7px 0;border-bottom:1px solid #f0dada}
+.collection-log .collection-problems .collection-problem:last-of-type{border-bottom:none}
+.collection-log .collection-problems ul{margin:3px 0 8px;padding-left:21px}
 .collect-coverage-hint{margin:10px 0 0}
 @media(max-width:780px){.issue-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.issue-fields{grid-template-columns:1fr}.source-toggle-actions{width:100%}.source-toggle-actions button{flex:1}}
@@ -399,7 +399,7 @@ body{background:var(--ui-bg);color:var(--ui-ink)}
 .app-main .selection-panels .rankrow button:not(.company-open){padding:3px;min-width:30px}
 .app-main .approval-actions{display:flex;gap:8px;flex-wrap:wrap}
 .app-main .collection-log progress{width:100%;margin:8px 0;accent-color:var(--ui-primary)}
-.app-main .collection-log .collection-problems{background:#f6f9fc;border-color:#d4dfeb;max-height:360px}
+.app-main .collection-log .collection-problems{background:#f6f9fc;border-color:#d4dfeb;max-height:360px;overflow-y:auto;overscroll-behavior:contain}
 .app-main .collection-log .collection-problem{color:#845018}
 .app-main .queue-tab[data-queue="company"]{color:#245f91}
 .app-main .queue-tab[data-queue="top"]{color:#80530f}
