@@ -119,7 +119,7 @@ def setup(con):
     con.commit()
 
 
-def save_item(con, item):
+def save_item(con, item, *, stats=None):
     url=canonical_url(item['url']); key=item['source_key']
     event=item.get('source_id','') if item.get('source_group') in ('clinical','treatment','drug') else ''
     iid=item.get('id') or record_id(key,url,event)
@@ -135,6 +135,10 @@ def save_item(con, item):
           'original_metadata':item.get('original_metadata') or {}}
     raw=json.dumps(snap,sort_keys=True,ensure_ascii=False)
     sha=hashlib.sha256(raw.encode()).hexdigest()
+    if stats is not None:
+        previous=con.execute('SELECT content_sha FROM items WHERE id=?',(iid,)).fetchone()
+        category='new' if previous is None else ('unchanged' if previous['content_sha']==sha else 'changed')
+        stats[category]=stats.get(category,0)+1
     con.execute('''INSERT INTO items VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET source_key=excluded.source_key,source_group=excluded.source_group,
           section=excluded.section,source_id=excluded.source_id,url=excluded.url,

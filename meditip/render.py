@@ -131,6 +131,13 @@ def approval_table(items,kind,final=False):
     return ''.join(parts)
 
 
+def top_output_rows(rows, target):
+    """Rank selected candidates, preserve decisions, and cap unique output."""
+    ranked = sorted((r for r in rows if r['top_selected']),
+                    key=lambda r: (r['top_rank'] if r['top_rank'] is not None else 9999, r['id']))
+    return list(unique_for_display(ranked))[:max(0, int(target))]
+
+
 def top_table(items):
     items=list(unique_for_display(items))
     if not items:return '<p style="padding:16px;color:#8a5962;font-size:13px">주요 뉴스 선정 대기</p>'
@@ -160,7 +167,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
         for row in rows:
             if row.get('summary_override') is None:
                 row['ai_summary']=None
-    tops=sorted([r for r in rows if r['top_selected']],key=lambda r:(r['top_rank'] if r['top_rank'] is not None else 9999,r['id']))
+    tops=top_output_rows(rows, edition['top_target'])
     soup=BeautifulSoup(Path(template_path).read_text(encoding='utf-8'),'html.parser')
     first=soup.select_one('#i8voq4');second=soup.select_one('#icsna')
     if not first or not second:raise ValueError('Original 892 TOP layout markers not found')

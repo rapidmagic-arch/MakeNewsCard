@@ -27,15 +27,17 @@ def snapshot(con, edition_id, confirmed_at=None, confirmed_by=None):
     rows = edition_rows(con, edition_id)
     if confirmed_at:
         ed.update(status='confirmed',confirmed_at=confirmed_at,confirmed_by=confirmed_by)
+    from .render import top_output_rows
+    top_output_ids=[x['id'] for x in top_output_rows(rows,ed['top_target'])]
     # Include every decision and original metadata available at confirmation time.
     return {'schema_version':'meditip-issue-snapshot-1','edition':ed,
             'week_label':week_label(ed['period_start'], ed['period_end']),
-            'items':rows}
+            'items':rows,'top_output_ids':top_output_ids}
 
 
 def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
     """Transactional one-time confirmation storing both inspectable JSON and immutable HTML."""
-    from .render import render
+    from .render import render, top_output_rows
     ed = require_draft(con, edition_id)
     if not isinstance(confirmed_by, str) or not 1 <= len(confirmed_by.strip()) <= 80:
         raise ValueError('확정 담당자 이름을 입력해.')
@@ -47,7 +49,7 @@ def confirm(con, edition_id, template_path, confirmed_by, issue_number=None):
     rows=edition_rows(con,edition_id)
     if not rows:
         raise ValueError('기사가 없는 회차는 확정할 수 없어.')
-    if not any(x['include_detail'] or x['top_selected'] for x in rows):
+    if not any(x['include_detail'] for x in rows) and not top_output_rows(rows, ed['top_target']):
         raise ValueError('수록하거나 주요 뉴스로 선정된 기사가 없어 확정할 수 없어.')
     when=datetime.now(timezone.utc).isoformat(timespec='seconds')
     try:
