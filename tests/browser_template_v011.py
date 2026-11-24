@@ -148,6 +148,20 @@ with tempfile.TemporaryDirectory() as tmp:
         frame=page.frame_locator('#newsletterPreview')
         expect(frame.locator('[data-slot="company_news"]')).to_contain_text('직접 등록 회사 소식')
         expect(frame.locator('[data-approval-slot="drug"]')).to_contain_text('Browser-Drug')
+        from urllib.parse import parse_qs,urlsplit
+        drug_href=frame.locator('[data-approval-slot="drug"] a').filter(has_text='Browser-Drug').get_attribute('href')
+        assert parse_qs(urlsplit(drug_href).query)['sItemName']==['Browser-Drug']
+        treatment=next(x for x in requests.get(base+'/api/edition',timeout=3).json()['items'] if x['source_group']=='treatment')
+        assert treatment['original_link_kind']=='search' and 'prductName=' in treatment['original_url']
+        page.locator('[data-view=edit]').click()
+        page.locator('[data-queue=all]').click()
+        page.locator('#group').select_option('treatment')
+        page.locator('.queue-open').first.click()
+        expect(page.locator('.original-heading .original-link')).to_contain_text('원문 조건 검색')
+        assert 'prductName=' in page.locator('.original-heading .original-link').get_attribute('href')
+        page.locator('#closeDetail').click()
+        page.locator('#group').select_option('all')
+        page.locator('[data-view=preview]').click()
         expect(frame.locator('[data-approval-slot="clinical"]')).to_contain_text('방광암')
         expect(frame.locator('[data-publication-slot]')).to_contain_text('발행일 2026-11-25')
         expect(frame.locator('[data-contact-slot]')).to_contain_text('Browser Test Contact')
