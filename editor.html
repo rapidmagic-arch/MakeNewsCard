@@ -280,7 +280,7 @@ function isSuggested(x){if(x.verification==='needs_title_review'||(x.title||'').
 function industryRows(){return db.items.filter(x=>x.source_group==='industry')}
 function groupLabel(id){return reviewGroups.find(g=>g.id===id)?.label||'그룹 미지정'}
 function scopeIndustry(){const s=$('industrySection').value;return industryRows().filter(x=>s==='all'||candidateSection(x)===s)}
-function ordered(){return db.items.filter(x=>x.top_selected).sort((a,b)=>(a.top_rank??999)-(b.top_rank??999))}
+function ordered(){return db.items.filter(x=>x.top_selected).sort((a,b)=>(a.top_rank??9999)-(b.top_rank??9999)|| (a.id<b.id?-1:a.id>b.id?1:0))}
 function reviewStatus(x){
  if(x.source_group!=='industry')return 'institutional';
  if(isSuggested(x))return 'recommended';
@@ -325,8 +325,9 @@ function render(){
  $('collectionSummary').textContent='식약처 연결 자료 '+all.filter(x=>x.source_group==='mfds').length+'건 · 수집 기록 '+(db.run_total??db.runs.length)+'회';
  $('editionScope').textContent='현재 회차: '+db.edition.title+' · '+db.edition.period_start+' ~ '+db.edition.period_end+' · 연결 '+all.length+'건 · 날짜 미확인 '+(db.undated_count||0)+'건 · 기간 밖 '+(db.out_of_period_count||0)+'건. 수집 원본 전수 확인 결과는 아니야.';
  $('target').value=db.edition.top_target;
- const outputIds=new Set(db.top_output_ids||[]);
+ const outputIds=new Set(db.top_output_ids||[]), outputKnown=Array.isArray(db.top_output_ids);
  $('targetHint').textContent='후보 '+top.length+'건 · 실제 출력 '+outputIds.size+'건 · 예비 '+(top.length-outputIds.size)+'건 / 출력 상한 '+db.edition.top_target+'건';
+ if(!outputKnown)$('targetHint').textContent='이전 확정본 · 실제 출력은 보존된 HTML에서 확인해.';
  const counts={recommended:all.filter(x=>reviewStatus(x)==='recommended').length,review:all.filter(x=>reviewStatus(x)==='review').length,other:all.filter(x=>reviewStatus(x)==='other').length,institutional:all.filter(x=>reviewStatus(x)==='institutional').length,included:all.filter(x=>x.include_detail).length,all:all.length};
  for(const button of document.querySelectorAll('[data-queue]')){
    const key=button.dataset.queue;button.setAttribute('aria-selected',String(queueKind===key));
@@ -360,7 +361,7 @@ function render(){
  const locked=db.edition.status==='confirmed';
  for(const id of ['runAi','importAi','bulkIncludeSelected','bulkExcludeSelected','bulkApplySections','applyRecommended','saveTarget'])$(id).disabled=locked;
  $('target').disabled=locked;
- $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+' <small>'+ (outputIds.has(x.id)?'출력':'예비')+'</small></span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0||locked?'disabled':'')+' aria-label="위로 이동">↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1||locked?'disabled':'')+' aria-label="아래로 이동">↓</button><button data-remove-top="1" data-id="'+esc(x.id)+'" '+(locked?'disabled':'')+' aria-label="TOP 후보 해제">×</button></div>').join('')||'<p class="status">담당자가 선정한 TOP 기사가 없어.</p>';
+ $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+' <small>'+ (!outputKnown?'확정 당시 후보':outputIds.has(x.id)?'출력':'예비')+'</small></span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0||locked?'disabled':'')+' aria-label="위로 이동">↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1||locked?'disabled':'')+' aria-label="아래로 이동">↓</button><button data-remove-top="1" data-id="'+esc(x.id)+'" '+(locked?'disabled':'')+' aria-label="TOP 후보 해제">×</button></div>').join('')||'<p class="status">담당자가 선정한 TOP 기사가 없어.</p>';
  $('runs').innerHTML=db.runs.slice(0,20).map(r=>'<div style="margin:6px 0">'+esc(r.source_key)+' · '+esc(r.status)+' · '+r.records_seen+'건</div>').join('')||'이 회차에 귀속된 수집 이력이 없어. 기존 기록은 임의로 귀속하지 않았어.';
  renderDetail();updateDashboard();
 }
