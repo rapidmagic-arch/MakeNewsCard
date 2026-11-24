@@ -206,3 +206,39 @@ settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;l
 .template-choice label{font-weight:700;color:#174769}
 .template-choice select{max-width:100%;min-width:230px}
 .template-choice .status{flex-basis:100%;margin:0;font-size:12px}
+
+/* Operator UI v0.10: distinguish surfaces, navigation and actionable controls. */
+.app-main>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 3%;min-height:64px}
+.app-main>header h1{font-size:22px;font-weight:750;margin:0;line-height:1.4}
+.edition-context{position:static;margin:0}
+.library-surface,.review-ai,.review-queue,.top-review{margin:0 0 16px}
+.review-heading{justify-content:flex-end;margin:0 0 12px}
+.review-heading>div:empty{display:none}
+.surface,.panel,.stat{border-radius:14px;background:#fff;border-color:#e0e7ef;box-shadow:0 2px 8px #173b5810}
+.stat{border:0;border-left:3px solid #b8cde0;border-radius:4px;background:#f0f5fa;box-shadow:none}
+button,a.button{border-radius:6px;border-color:#aabfd2;background:#e8f0f7;color:#184b72;box-shadow:none}
+button:not(:disabled):hover,a.button:hover{background:#d5e5f2}
+button.primary,a.primary{background:#1766a3;color:white;border-color:#1766a3}
+button.primary:not(:disabled):hover,a.primary:hover{background:#125285}
+button:disabled{opacity:.48;cursor:not-allowed}
+.nav-item{background:transparent;border:0;color:#c4d0df;border-radius:8px}
+.nav-item:hover,.nav-item[aria-current="page"]{background:#283b56;color:#fff}
+.queue-tab{border:0;border-radius:0;background:transparent;border-bottom:3px solid transparent;color:#385d78}
+.queue-tab[aria-selected=true]{background:#e8f1f8;color:#154e7a;border-color:#1766a3}
+.queue-open,.queue-open:not(:disabled):hover{background:transparent;border:0;padding:0;color:#183f5b}
+.selection-bar{border:0;border-radius:6px;background:#eef3f8;padding:9px 12px}
+.inclusion-toggle{display:inline-flex;border:1px solid #aabfd2;border-radius:6px;overflow:hidden}
+.inclusion-toggle button{border:0;border-radius:0;min-width:66px;background:#fff}
+.inclusion-toggle button+button{border-left:1px solid #aabfd2}
+.inclusion-toggle button[aria-pressed=true]{background:#1766a3;color:white}
+.inclusion-toggle #bulkExcludeSelected[aria-pressed=true]{background:#526477}
+.detail-title{position:sticky;top:0;background:#fff;z-index:2;padding:10px 0}
+.detail-form{border:0;padding-top:8px}
+.detail-form .checkline{display:inline-flex;align-items:center;gap:5px;margin:5px 10px 5px 0}
+.detail-form #detailTitle{min-height:38px;font-size:14px}
+.detail-form textarea{font-size:14px;min-height:112px}
+.proposal-box strong{font-size:inherit;font-weight:650}
+.original-article{border-top:1px solid #dce6ef;padding-top:12px;margin-top:16px}
+.original-article .source-title{white-space:pre-wrap;line-height:1.7}
+.status:empty{display:none}
+@media(max-width:680px){.app-main>header{padding:14px 12px}.app-main>header h1{font-size:20px}.selection-bar .inclusion-toggle button{flex:none}}
