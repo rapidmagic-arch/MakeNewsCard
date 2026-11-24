@@ -7,16 +7,20 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 FIELDS={'contact_name':80,'phone':80,'email':254,'address':300,'website':500}
-IMAGES=('logo','banner')
+IMAGES=('logo','banner','footer')
+# Original user-provided issue 892 (2026-11-17), sample defaults, not independently current.
+SAMPLE_CONTACT={'contact_name':'최서영','phone':'070-7733-0340','email':'sychoi@meditip.co.kr',
+                'address':'서울특별시 강남구 개포로 619, 10층 (개포동, 서울강남우체국빌딩) 우.06336',
+                'website':'http://meditip.co.kr/'}
 
 def get_branding(con):
     row=con.execute("SELECT value FROM newsletter_branding WHERE key='branding'").fetchone()
-    return json.loads(row['value']) if row else {}
+    return json.loads(row['value']) if row else dict(SAMPLE_CONTACT)
 
 def public_branding(con):
     data=get_branding(con)
     return {**{key:data.get(key,'') for key in FIELDS},
-            **{key+'_custom':bool(data.get(key)) for key in IMAGES}}
+            **{key+'_custom':bool(data.get(key)) for key in IMAGES},'sample_contact':dict(SAMPLE_CONTACT)}
 
 def save_branding(con,obj):
     data=get_branding(con)
@@ -52,7 +56,13 @@ def save_branding(con,obj):
     return public_branding(con)
 
 def default_banner(template_path):
-    path=Path(template_path).resolve().parent.parent/'assets'/'newsletter'/'meditip-mvp-banner.jpg'
+    return bundled_image(template_path,'meditip-banner-hd.jpg') or bundled_image(template_path,'meditip-mvp-banner.jpg')
+
+def default_footer(template_path):
+    return bundled_image(template_path,'meditip-footer-hd.jpg')
+
+def bundled_image(template_path,name):
+    path=Path(template_path).resolve().parent.parent/'assets'/'newsletter'/name
     return 'data:image/jpeg;base64,'+base64.b64encode(path.read_bytes()).decode('ascii') if path.is_file() else ''
 
 def contact_lines(data):
