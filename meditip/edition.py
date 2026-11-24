@@ -144,10 +144,10 @@ def refresh_rule_proposal(con,edition_id,r,config=None):
     if r['source_group']=='industry':
         section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
         if recommended:
-        # Section priority is applied to candidates, not to article inclusion.
-        proposed_base=int((config or {}).get('section_priority',{}).get(
-            section,KEYWORDS.get(section,(12,''))[0]))
-        score=max(score,proposed_base)
+            # Section priority is applied to candidates, not to article inclusion.
+            proposed_base=int((config or {}).get('section_priority',{}).get(
+                section,KEYWORDS.get(section,(12,''))[0]))
+            score=max(score,proposed_base)
         reason += ' · '+hint
     else:
         section,relevance,recommended,rule_group_id=None,None,False,None
