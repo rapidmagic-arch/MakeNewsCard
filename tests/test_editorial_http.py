@@ -40,7 +40,7 @@ def test_http_ai_export_import_bulk(tmp_path):
             if code==200:break
         except ConnectionError:time.sleep(.1)
     else:raise AssertionError('server unavailable')
-    token=re.search(r"const TOKEN='([^']+)'",html).group(1)
+    token=re.search(r'name="local-token" content="([^"]+)"',html).group(1)
     code,content=req('GET','/export/ai')
     assert code==200
     ai=json.loads(content)
