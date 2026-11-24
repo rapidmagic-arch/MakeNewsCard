@@ -5,6 +5,7 @@ import re
 from urllib.parse import urlsplit, parse_qs
 from bs4 import BeautifulSoup
 from .db import edition_rows,get_edition
+from .source_links import resolve_source_link, approval_search_url
 
 GROUPS={'mfds.guides':'공무원지침서/민원인안내서',
         'mfds.regulations':'입법·행정예고 / 제개정고시 / 법령',
@@ -25,7 +26,7 @@ def effective(row,key):
 
 def link(x):
     from urllib.parse import urlsplit
-    url=x['url']
+    url,_=resolve_source_link(x)
     if urlsplit(url).scheme not in ('http','https'):return txt(effective(x,'title'))
     return f'<a style="color:#1c3854;text-decoration:underline" href="{escape(url,quote=True)}">{txt(effective(x,"title"))}</a>'
 
@@ -132,6 +133,7 @@ def approval_table(items,kind,final=False):
     for r in items:
         meta=json.loads(r.get('original_metadata') or '{}')
         raw=meta.get('approval_row') or meta.get('csv_row') or {}
+        url,link_kind=resolve_source_link(r)
         vals=[]
         for f in fields:
             aliases={'승인일':['승인일자','허가일','허가일자'],'허가일':['허가일자','승인일','승인일자'],'임상시험제목':['임상시험 제목'],
@@ -139,7 +141,10 @@ def approval_table(items,kind,final=False):
             value=raw.get(f) or next((raw.get(x) for x in aliases.get(f,[]) if raw.get(x)),None)
             if not value and f in ('임상시험제목','제품명'):value=r['title']
             if not value and f in ('승인일','허가일'):value=r.get('published_at')
-            vals.append('<td style="padding:6px;vertical-align:top">'+txt(value or '—')+'</td>')
+            cell=txt(value or '—')
+            if url and f==('임상시험제목' if kind=='clinical' else '제품명'):
+                cell='<a style="color:#1c3854;text-decoration:underline" href="'+escape(url,quote=True)+'">'+cell+'</a>'
+            vals.append('<td style="padding:6px;vertical-align:top">'+cell+'</td>')
         parts.append('<tr>'+''.join(vals)+'</tr>')
     parts.append('</tbody></table>')
     if not final:
@@ -240,7 +245,7 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
             selected_rows=[r for r in rows if r['source_group']==kind and r['include_detail']]
             if selected_rows:
                 if kind=='treatment':
-                    node.append(BeautifulSoup('<p style="color:#2980b9;font-weight:bold">치료목적 사용승인</p>','html.parser'))
+                    node.append(BeautifulSoup('<p style="color:#2980b9;font-weight:bold"><a style="color:inherit" href="'+escape(approval_search_url('treatment',edition['period_start'],edition['period_end']),quote=True)+'">치료목적 사용승인</a></p>','html.parser'))
                 node.append(BeautifulSoup(approval_table(selected_rows,kind,publish_view),'html.parser'))
         if not node.get_text(strip=True) and not publish_view:
             node.string='등록된 승인·허가 자료 없음'
@@ -250,9 +255,14 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
         if node:
             node.clear()
             node.append(BeautifulSoup('<strong style="font: bold 19px Malgun Gothic,Arial,sans-serif;color:#2980b9">'+txt(heading)+'</strong>','html.parser'))
+    # Only original section headings, not the record-specific links inserted above.
     for anchor in soup.find_all('a',href=True):
-        if anchor['href'].startswith('https://nedrug.mfds.go.kr/searchClinic'):
-            anchor['href']='https://nedrug.mfds.go.kr/searchClinic'
+        label=anchor.get_text(' ',strip=True)
+        path=urlsplit(anchor['href']).path
+        if path=='/searchClinic' and anchor.find('strong') and '임상시험' in label:
+            anchor['href']=approval_search_url('clinical',edition['period_start'],edition['period_end'])
+        elif path=='/pbp/CCBAE01' and anchor.find('strong') and '주간허가현황' in label:
+            anchor['href']=approval_search_url('drug',edition['period_start'],edition['period_end'])
     # Original 892 issue date/number is historic; it must not imply a new issued newsletter.
     for t in list(soup.find_all(string=True)):
         val=str(t)
