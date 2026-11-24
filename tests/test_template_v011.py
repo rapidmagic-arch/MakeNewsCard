@@ -91,8 +91,8 @@ def test_approval_slots_company_and_banner(tmp_path):
                 raw=base64.b64decode(soup.select_one('[data-image-slot="banner"] img')['src'].split(',')[1])
                 assert hashlib.sha256(raw).hexdigest()=='eeb891e487f66907b1a74e200805696b9b17390b6524c7637f84b9506baf13df'
                 assert '제약 제약' not in soup.get_text()
-                assert soup.select_one('a[href="https://nedrug.mfds.go.kr/searchClinic"]')
-                assert soup.select_one('a[href="https://nedrug.mfds.go.kr/pbp/CCBAE01"]')
+                assert any('approvalDtStart=2026-11-16' in a['href'] and 'approvalDtEnd=2026-11-22' in a['href'] for a in soup.select('a[href]') if '임상시험승인현황' in a.get_text())
+                assert any('sPermitDateStart=2026-11-16' in a['href'] and 'sPermitDateEnd=2026-11-22' in a['href'] for a in soup.select('a[href]') if '주간허가현황' in a.get_text())
         confirm(con,'week',TEMPLATE,'test','902')
         frozen=confirmed_html(con,'week')
         save_branding(con,dict(contact_name='Different contact'))
