@@ -2,7 +2,8 @@
 import json
 from pathlib import Path
 import yaml
-from .db import edition_rows, get_edition
+from .db import edition_rows, get_edition, save_item
+from .metadata_quality import title_needs_review
 
 KEYWORDS={
     'mfds.regulations':(75,'규제·고시 및 행정예고'),
@@ -27,7 +28,7 @@ INDUSTRY_HINTS={
 
 def group_proposal(row,config=None):
     """Classify a metadata candidate using user groups; never commit an editorial decision."""
-    if row['verification'] == 'needs_title_review' or len(row['title'] or '') > 190:
+    if title_needs_review(row):
         return 'industry.unclassified','review_needed',False,'제목 추출 검증 필요 · 원본 확인 후 분류',None
     text=((row['title'] or '')+' '+(row['summary_source'] or '')).casefold()
     if config is not None and 'review_groups' in config:
@@ -71,7 +72,7 @@ def industry_proposal(row,config=None):
 
 def proposal_for(row):
     """Imported GPT data takes precedence only when actually supplied."""
-    if row.get('verification') == 'needs_title_review' or len(row.get('title') or '') > 190:
+    if title_needs_review(row):
         return False, row.get('section_override') or row['section']
     imported=(row.get('ai_score') is not None or row.get('ai_reason') is not None
               or row.get('ai_section') is not None or bool(row.get('ai_summary')))
@@ -138,6 +139,23 @@ def rule_score(row, config=None):
         if key.casefold() in row['title'].casefold():score+=bonus;reason+=f' · {key}'
     return score,reason
 
+def refresh_rule_proposal(con,edition_id,r,config=None):
+    score,reason=rule_score(r,config)
+    if r['source_group']=='industry':
+        section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
+        if recommended:
+            # Section priority is applied to candidates, not to article inclusion.
+            proposed_base=int((config or {}).get('section_priority',{}).get(
+                section,KEYWORDS.get(section,(12,''))[0]))
+            score=max(score,proposed_base)
+        reason += ' · '+hint
+    else:
+        section,relevance,recommended,rule_group_id=None,None,False,None
+    con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?,rule_group_id=?
+               WHERE edition_id=? AND item_id=?''',
+            (score,reason,section,relevance,int(recommended),rule_group_id,edition_id,r['id']))
+
+
 def prepare(con,edition_id,config=None,extra_ids=None):
     from .workflow import require_draft
     edition=require_draft(con,edition_id)
@@ -159,19 +177,7 @@ def prepare(con,edition_id,config=None,extra_ids=None):
         con.execute('''INSERT OR IGNORE INTO decisions
             (edition_id,item_id,include_detail,rule_score,rule_reason)
             VALUES (?,?,?,?,?)''',(edition_id,r['id'],include,score,reason))
-        if r['source_group']=='industry':
-            section,relevance,recommended,hint,rule_group_id=group_proposal(r,config)
-            if recommended:
-                # Section priority is applied to candidates, not to article inclusion.
-                proposed_base=int((config or {}).get('section_priority',{}).get(
-                    section,KEYWORDS.get(section,(12,''))[0]))
-                score=max(score,proposed_base)
-            reason += ' · '+hint
-        else:
-            section,relevance,recommended,rule_group_id=None,None,False,None
-        con.execute('''UPDATE decisions SET rule_score=?,rule_reason=?,rule_section=?,rule_relevance=?,rule_recommended=?,rule_group_id=?
-                       WHERE edition_id=? AND item_id=?''',
-                    (score,reason,section,relevance,int(recommended),rule_group_id,edition_id,r['id']))
+        refresh_rule_proposal(con,edition_id,r,config)
     con.commit()
     # TOP scores are suggestions, never automatic editorial selection.
     # Historic selected TOP entries remain in decisions unchanged.
@@ -263,3 +269,39 @@ def import_ai(con,edition_id,payload):
         touched+=1
     con.commit()
     return touched
+
+
+def repair_medicaltimes_metadata(con,edition_id,item_id,expected_sha,metadata,config=None):
+    """Correct one source record, version it and preserve all human editorial fields."""
+    from .workflow import require_draft
+    from .collect import medicaltimes_article_id, norm_date
+    ed=require_draft(con,edition_id)
+    row=con.execute("""SELECT i.* FROM items i JOIN decisions d ON i.id=d.item_id
+                       WHERE d.edition_id=? AND i.id=?""",(edition_id,item_id)).fetchone()
+    if row is None or row['source_key']!='medicaltimes' or not medicaltimes_article_id(row['url']):
+        raise ValueError('현재 회차의 메디칼타임즈 기사만 원문 재확인할 수 있습니다.')
+    row=dict(row)
+    if row['content_sha']!=expected_sha:raise ValueError('원본이 변경되었습니다. 다시 확인하세요.')
+    title=metadata['title'];published=metadata['published_at']
+    if title_needs_review({'source_key':'medicaltimes','title':title}) or not isinstance(published,str) or norm_date(published)!=published:
+        raise ValueError('원문 메타데이터 검증 실패')
+    changed=(title!=row['title'] or published!=row['published_at'] or row['verification']=='needs_title_review')
+    prior=json.loads(row['original_metadata'] or '{}')
+    updated={**prior,'title_extraction':'dedicated_detail_headline','date_extraction':'explicit_detail_publication',
+             'metadata_rechecked':True}
+    save_item(con,{**row,'title':title,'published_at':published,'verification':'metadata_only','original_metadata':updated})
+    drafts=con.execute("""SELECT d.edition_id FROM decisions d JOIN editions e ON e.id=d.edition_id
+                         WHERE d.item_id=? AND e.status='draft'""",(item_id,)).fetchall()
+    repaired=dict(con.execute('SELECT * FROM items WHERE id=?',(item_id,)).fetchone())
+    for draft in drafts:
+        eid=draft['edition_id']
+        refresh_rule_proposal(con,eid,repaired,config)
+        if changed:
+            # Old machine proposals used the previous metadata; do not treat them as current.
+            # Human title/summary/section, inclusion, company and TOP decisions are untouched.
+            con.execute("""UPDATE decisions SET ai_score=NULL,ai_reason=NULL,ai_summary=NULL,
+                           ai_section=NULL,ai_recommended=0,ai_relevance=NULL
+                           WHERE edition_id=? AND item_id=?""",(eid,item_id))
+    con.commit()
+    return {'title':title,'published_at':published,'changed':changed,
+            'out_of_period':not ed['period_start']<=published<=ed['period_end']}

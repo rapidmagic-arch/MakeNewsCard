@@ -70,3 +70,27 @@
 - `tests/browser_template_v011.py`: 실제 localhost UI, 모의 공식 데이터 응답, 드롭존, 현재 페이지/카드 선택, 확정 회차 잠금, 샘플 연락처, HD 이미지, 변경된 브랜드 설정 및 확정 HTML 보존.
 - 상단 Git blob SHA `30db07ef86f7f63b471e4b9f85171cabf6c3acd1`, 하단 `70153575f3eec5dc73261ecd89be0dc5bed40171`; 원본 크롭 이미지와 일치 확인.
 - UI CSS 참고: IBM Carbon Design System Forms, Checkbox, File uploader; 로컬 CSS로 구현. 실사용 Windows 네트워크 및 Outlook 데이터 URI 호환성은 별도 검증 대상.
+
+## v0.13 source quality verification
+- MedicalTimes observed public markup: article.newsList_cont, .headLine, .newsList_cont_date, detail .viewTitle_wrap #NewsTitle and .date_info span with 발행날짜 label. Example article ID 1172075, publication date 2026-11-23; this date is outside the 2026-11-16~22 edition period.
+- Tests model observed DOM with synthetic body content; verify missing fields, noisy legacy metadata, duplicate sidebars, explicit dates, version retention, stale AI proposal invalidation, human decisions and frozen HTML/snapshot preservation. Browser integration uses a mocked article metadata response, not live access from Windows.
+- Footer table rows and image position are tested in Chromium; actual Outlook rendering remains unverified.
+
+## v0.14 maintenance and Windows packaging
+- Editor markup and JavaScript separated: `editor.html`, `assets/editor.js`, `assets/editor.css`; no frontend build or package manager required. Existing browser fixtures compose the same source with `meditip/ui_assets.py`; HTTP integration uses the actual static asset route. Token remains in HTML only.
+- Browser integration checks company ordering synchronizes with queue, site preferences survive reload without retaining media-rights acknowledgement, all approval types execute independently (mocked partial failure and CSV conflict), and stable template IDs.
+- Windows package workflow builds a one-file x64 executable using PyInstaller, then launches with Python removed from PATH and a synthetic external .env. Smoke checks startup, editor assets, local data creation, preview, and no secret in settings response. Artifact contains executable, example env, and manual, not the real database or API key. Actual target PC security policy, live API calls and Outlook are not covered.
+
+## v0.14 original link resolution
+- Official public GET form and result checked for 2026-11-20: clinical ST2/searchKeyword=SRP-9001; treatment prductName=티쎈트릭(RO554-1267), applyEntpName=서울대학교병원; drug sItemName=프레비미스미니정(레테르모비르)20밀리그램, sEntpName=한국엠에스디(주). Each observed result showed 1 record with matching date and product. This is evidence of supported query parameters, not a guarantee for every record.
+- `source_links.py` centralizes URL generation. Unit and browser tests cover direct URL priority, search fallback, URL encoding, same output in both templates, unchanged stored identities, and prior frozen HTML behavior. Live external results may change after publication.
+
+## v0.14 managed user files
+- ManagedFiles validates directory containment, normalizes names and uses content-derived versions with atomic writes. Exact bytes of imported CSV and JSON are kept, legacy brand images are copied from the DB, and explicit exports are mirrored to persistent files without changing the browser download flow.
+- Unit tests cover path escape rejection, filename collisions, repeat content and version retention. HTTP/browser tests cover original import bytes, duplicate export behavior, actual folder path and confirmed HTML. Windows package smoke checks folders and an actual HTML export under external --data-dir, not the temporary executable extraction folder.
+- DB remains the authoritative editorial/brand state. Files are retained copies; historical imports that were never stored cannot be reconstructed. A failed import can leave its input file in the archive. No automatic cleanup or migration of arbitrary old files.
+
+## v0.14 operator polish
+- Resolve rank row flex/grid conflict and normalize spacing, buttons, status chip and file drop geometry. Browser test checks actual computed styles, rather than only presence of DOM nodes.
+- Default contacts are independently persisted in newsletter_branding, with regression coverage for unchanged active publishing settings and reopen. Explorer uses explicit executable; actual visible Explorer window in end user's desktop session is not verified by headless CI. Copy path fallback provided.
+- Edition creation client-side input validation and inline response message; screenshot alone does not identify the specific historical HTTP 400 cause. Preview sandbox is intentionally retained; browser console's blocked-script message does not establish a functional defect.

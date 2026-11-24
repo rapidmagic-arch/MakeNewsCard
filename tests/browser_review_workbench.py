@@ -1,10 +1,11 @@
 """Offline browser flow with 208 mock candidates. No external API, no source claims."""
 from pathlib import Path
+from meditip.ui_assets import read_editor
 from playwright.sync_api import sync_playwright
 import json
 
 ROOT=Path(__file__).resolve().parents[1]
-html=(ROOT/'editor.html').read_text().replace('<link rel="stylesheet" href="/assets/editor.css">','<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
+html=read_editor(ROOT/'editor.html',inline_script=True).replace('<link rel="stylesheet" href="/assets/editor.css">','<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
 base={'id':'demo','title':'모의 주간 편집','period_start':'2026-11-02','period_end':'2026-11-08','top_target':4,'status':'draft','issue_number':None,'confirmed_at':None}
 items=[]
 for i in range(208):
@@ -56,7 +57,7 @@ window.fetch=async function(path,opts){
        data={ok:true};
     }else if(path==='/api/target'){window.__data.edition.top_target=body.count;data={ok:true};}
     else if(path==='/api/ai/review'){data={ok:true,total:body.ids.length};}
-    else if(path==='/api/ai/import'){data={analysed:body.items.length};}
+    else if(path==='/api/ai/import'){const proposal=body.content?JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(body.content),c=>c.charCodeAt(0)))):body;data={analysed:proposal.items.length};}
     else if(path==='/api/review-groups/save'){
       const list=window.__settings.review_groups;const id=body.id||'custom-1';
       const prev=list.findIndex(x=>x.id===id);const g={...body,id};

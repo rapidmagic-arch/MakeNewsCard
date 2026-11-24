@@ -4,10 +4,11 @@ Do not use JavaScript, externally loaded CSS, flexbox or CSS grid in email HTML.
 """
 from html import escape
 from urllib.parse import urlsplit
+from .source_links import resolve_source_link, approval_search_url
 
 TEMPLATES = {
-    'classic': '템플릿 1 · 892호 기존 형식',
-    'outlook_cards': '템플릿 2 · Outlook 뉴스카드',
+    'classic': '뉴스카드 양식 v01',
+    'outlook_cards': '아웃룩 양식 v01',
 }
 DEFAULT_TEMPLATE = 'classic'
 
@@ -32,7 +33,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     h = lambda value: escape(str(value or ''), quote=True)
 
     def safe_link(row):
-        url = str(row.get('url') or '')
+        url,_ = resolve_source_link(row)
         if urlsplit(url).scheme not in ('http', 'https'):
             return h(effective(row, 'title'))
         return '<a href="' + h(url) + '" style="color:#12669b;text-decoration:underline">' + h(effective(row, 'title')) + '</a>'
@@ -51,10 +52,10 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
                      + h(summary) + '</p>')
         return prefix + body
 
-    def section_title(title):
+    def section_title(title,url=None):
         return ('<tr><td style="padding:28px 20px 11px;border-bottom:2px solid #216a98">'
                 '<p style="font-family:Arial,Malgun Gothic,sans-serif;font-size:18px;line-height:24px;'
-                'font-weight:bold;color:#174769;margin:0">' + h(title) + '</p></td></tr>')
+                'font-weight:bold;color:#174769;margin:0">' + ('<a href="'+h(url)+'" style="color:inherit">'+h(title)+'</a>' if url else h(title)) + '</p></td></tr>')
 
     def article_rows(entries, label_mode='date'):
         result = []
@@ -135,7 +136,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     ):
         selected=[r for r in rows if r['source_group']==group and r['include_detail']]
         if selected:
-            parts.append(section_title(title))
+            parts.append(section_title(title,approval_search_url(kind,edition['period_start'],edition['period_end'])))
             parts.append('<tr><td style="padding:12px 18px">'
                          + approval_table(selected, kind, final or preview) + '</td></tr>')
 

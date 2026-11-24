@@ -44,12 +44,19 @@ def test_live_http_workflow(tmp_path,monkeypatch):
             if status==200:break
         except OSError:time.sleep(.03)
     assert status==200
-    token=re.search(r"const TOKEN='([^']+)'",html).group(1)
+    token=re.search(r'name="local-token" content="([^"]+)"',html).group(1)
     status,e=request('GET','/api/edition')
     assert status==200 and e['week_label']=='2026-W47' and e['edition']['status']=='draft'
     status,settings=request('GET','/api/settings')
     assert status==200 and not settings['ai_api_available']
     assert len(settings['review_groups'])==4
+    original=settings['branding']['contact_name']
+    status,default=request('POST','/api/branding/default-contact',{'contact_name':'후임 담당자','email':'new@example.org'},token)
+    assert status==200 and default['default_contact']['contact_name']=='후임 담당자'
+    status,settings=request('GET','/api/settings')
+    assert settings['branding']['contact_name']==original
+    assert settings['branding']['default_contact']['contact_name']=='후임 담당자'
+    assert request('POST','/api/branding/default-contact',{'email':'invalid'},token)[0]==400
     post={'label':'급여 규칙','target_section':'industry.policy','keywords':['보험급여','약가'],'recommend':False}
     status,new_group=request('POST','/api/review-groups/save',post,token)
     assert status==200 and len(new_group['groups'])==5

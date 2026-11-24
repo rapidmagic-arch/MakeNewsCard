@@ -93,7 +93,7 @@ def test_http_template_choice_and_lock(tmp_path,monkeypatch):
             if status==200:break
         except OSError:time.sleep(.03)
     assert status==200 and 'id="templateChoice"' in html
-    token=re.search(r"const TOKEN='([^']+)'",html).group(1)
+    token=re.search(r'name="local-token" content="([^"]+)"',html).group(1)
     assert len(req('GET','/api/templates')[1]['templates'])==2
     assert req('POST','/api/edition/template',{'template_id':'outlook_cards'})[0]==403
     assert req('POST','/api/edition/template',{'template_id':'unknown'},token)[0]==400

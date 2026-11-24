@@ -54,10 +54,7 @@ settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;l
 .collect-advanced summary{cursor:pointer;font-size:13px;font-weight:650;color:#3c6588}
 .collect-advanced input[type=number]{width:100%}
 .collection-actions{margin:16px 0 10px}
-.collector .collection-problems{max-height:215px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #e5c3c3;border-radius:10px;background:#fff8f8;padding:12px;margin:14px 0}
-.collector .collection-problems .collection-problem{padding:7px 0;border-bottom:1px solid #f0dada}
-.collector .collection-problems .collection-problem:last-of-type{border-bottom:none}
-.collector .collection-problems ul{margin:3px 0 8px;padding-left:21px}
+
 .collect-coverage-hint{margin:10px 0 0}
 @media(max-width:780px){.issue-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.issue-fields{grid-template-columns:1fr}.source-toggle-actions{width:100%}.source-toggle-actions button{flex:1}}
@@ -132,7 +129,7 @@ settings-summary{display:block}.settings-details{padding:10px 0;font-size:13px;l
 .review-group-chips:empty{display:none}
 .group-chip{font-size:12px;padding:7px 10px;border:1px solid #d5e4f0;background:#f8fbfe;color:#245779}
 .group-chip strong{padding:1px 4px;margin-left:3px;border-radius:6px;background:#e3eef8}
-.top-review>summary{font-size:14px;font-weight:750;color:#204c6d;cursor:pointer;list-style:disclosure-closed}
+.top-review>summary{font-size:14px;font-weight:750;color:#204c6d;cursor:pointer}
 .top-review[open]>summary{margin-bottom:13px}
 .review-detail{scrollbar-gutter:stable}
 .detail-backdrop{display:none}
@@ -268,14 +265,14 @@ button:disabled{opacity:.48;cursor:not-allowed}
 #stats .stat:nth-child(3) b{color:#80530f}
 .ai-counts,.top-state{font-size:13px;font-weight:600;color:#34536d;padding:9px 0;line-height:1.6}
 
-#companyList .rankrow{grid-template-columns:2rem minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+
 #companyList .company-open{background:transparent;border:0;text-align:left;padding:7px;color:#173f67;overflow-wrap:anywhere;white-space:normal}
 #companyList .company-open:hover{text-decoration:underline;background:#eef4f9}
 #companyList .rankrow .tag{white-space:nowrap}
 #companyList:empty{display:none}
 #view-edit .form-row,#view-collect .form-row{flex-wrap:wrap}
 #companySummary{min-height:70px}
-@media(max-width:600px){#companyList .rankrow{grid-template-columns:1.5rem minmax(0,1fr) auto auto;gap:5px}#companyList .rankrow .tag{grid-column:2;grid-row:2}#companyList .rankrow button[data-company-move]{grid-row:1}}
+
 
 /* v0.12: common operator component system.
    Control roles are independent from surfaces; no external CSS dependency.
@@ -377,3 +374,77 @@ body{background:var(--ui-bg);color:var(--ui-ink)}
 .app-main .brand-assets .field-block .checkline{min-height:24px}
 @media(max-width:920px){.app-main .brand-assets{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.app-main .approval-controls>button{justify-self:start}}
 @media(max-width:600px){.app-main .brand-fields,.app-main .brand-assets,.app-main .form-row,.app-main .form-grid,.app-main .approval-controls{grid-template-columns:1fr}.app-main .form-row>label{min-width:0}.app-main .approval-controls>button{width:100%}.app-main .queue-filters label{min-width:0}.app-main .compact-drop{max-width:100%;flex-basis:100%}.app-main .file-drop{min-height:84px}}
+
+/* Source quality and article links */
+.app-main .detail-title{flex-wrap:wrap;align-items:center}
+.app-main .detail-title-actions,.app-main .original-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.app-main .detail-title-actions{justify-content:flex-end;margin-left:auto}
+.app-main .original-heading h4{font-size:14px;line-height:1.4;margin:0;color:var(--ui-ink)}
+.app-main a.original-link{min-height:32px;padding:6px 9px;font-size:12px;white-space:nowrap;color:var(--ui-primary);border-color:#b7cde0;background:#f5f9fd}
+.app-main #qualityFilter{max-width:220px}
+.app-main .original-article #recheckMetadata{margin-top:8px;min-height:34px;font-size:12px}
+
+/* v0.14 selection and collection workspace */
+.app-main .selection-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0;align-items:start}
+.app-main .selection-panels>.surface{margin:0;padding:16px;min-width:0;border:1px solid var(--ui-line-soft);box-shadow:none}
+.app-main .selection-panels h3{font-size:15px}
+.app-main .selection-panels #companyList,.app-main .selection-panels #top{max-height:240px;overflow:auto}
+.app-main .selection-panels .rankrow{display:grid;gap:8px;align-items:center;min-height:52px;padding:10px 0}.app-main .selection-panels #companyList .rankrow{grid-template-columns:24px minmax(0,1fr) max-content 32px 32px}
+.app-main .selection-panels #top .rankrow{grid-template-columns:24px minmax(0,1fr) 32px 32px 32px}
+.app-main .selection-panels .rankrow>.tag{flex:none;justify-self:start;width:max-content;max-width:100%;white-space:nowrap}
+.app-main .selection-panels .rankrow>span{min-width:0;overflow-wrap:anywhere}
+.app-main .selection-panels .rankrow button:not(.company-open){padding:0;width:32px;min-width:32px;height:32px;min-height:32px}
+.app-main .approval-actions{display:flex;gap:8px;flex-wrap:wrap}
+.app-main .collection-log{padding:20px;margin:16px 0;min-width:0}
+.app-main .collection-log h3{margin:0 0 12px}
+.app-main .collection-log #collectionState{margin:0 0 12px;line-height:1.6}
+.app-main .collection-log progress{display:block;width:100%;height:8px;margin:0;accent-color:var(--ui-primary);border:0;border-radius:4px;overflow:hidden}
+.app-main .collection-log .collection-problems{margin:16px 0 0;padding:0 14px;background:#f6f9fc;border:1px solid #d4dfeb;border-radius:8px;max-height:360px;overflow-y:auto;overscroll-behavior:contain;font-size:13px;line-height:1.55}
+.app-main .collection-log .collection-problems>.error{margin:12px 0}
+.app-main .collection-result-row{padding:12px 0;border-bottom:1px solid var(--ui-line-soft)}
+.app-main .collection-result-row:last-child{border-bottom:0}
+.app-main .collection-result-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+.app-main .collection-result-heading strong{font-size:13px;line-height:1.5}
+.app-main .collection-result-stats{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--ui-muted);font-size:12px}
+.app-main .collection-result-issues{margin:8px 0 0;padding:8px 12px 8px 26px;border-left:3px solid #d5a35e;border-radius:4px;background:#fff7e8;color:#795018;font-size:12px;overflow-wrap:anywhere}
+.app-main .collection-result-issues li+li{margin-top:4px}
+.app-main .selection-panels .top-count-controls{gap:8px}
+.app-main .selection-panels #target{width:72px;min-height:40px}
+.app-main .selection-panels #targetHint{margin:8px 0 12px;line-height:1.6}
+@media(max-width:600px){.app-main .collection-log{padding:14px}.app-main .collection-log .collection-problems{padding:0 10px}.app-main .collection-result-stats{gap:4px 10px}}
+.app-main .queue-tab[data-queue="company"]{color:#245f91}
+.app-main .queue-tab[data-queue="top"]{color:#80530f}
+@media(max-width:1100px){.app-main .selection-panels{grid-template-columns:1fr}.app-main .approval-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.app-main .approval-controls{grid-template-columns:1fr}.app-main .selection-panels #companyList .rankrow{grid-template-columns:24px minmax(0,1fr) 32px 32px}.app-main .selection-panels #companyList .rankrow>.tag{grid-column:2;grid-row:2}.app-main .selection-panels #companyList [data-company-move]{grid-row:1}.app-main .selection-panels #top .rankrow{grid-template-columns:24px minmax(0,1fr) 32px 32px 32px}}
+
+.app-main .managed-path{font:13px/1.6 Consolas,monospace;background:#f4f7fa;border:1px solid var(--ui-line-soft);border-radius:8px;padding:10px 12px;overflow-wrap:anywhere;user-select:all}
+.app-main .managed-file-folders>div{border:1px solid var(--ui-line-soft);border-radius:8px;padding:12px;color:var(--ui-ink)}
+.app-main .managed-file-folders p{font-size:12px;color:var(--ui-muted);margin:5px 0 0}
+
+/* Operator spacing: consistent component geometry and no stretched status chips. */
+.app-main .selection-panels .rankrow .num{display:grid;place-items:center;width:24px;height:24px;padding:0;font-size:12px}
+.app-main .selection-panels .rankrow>span:not(.tag){line-height:1.5}
+.app-main .selection-panels .company-open{padding:0;min-width:0;line-height:1.5}
+.app-main .selection-panels h3,.app-main .selection-panels>details>summary{font-size:15px;line-height:1.5;font-weight:650;margin:0 0 12px}
+.app-main .selection-panels>details:not([open])>summary{margin-bottom:0}
+.app-main .top-count-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.app-main .selection-panels .review-step-title{margin:12px 0;justify-content:flex-end}
+.app-main .selection-panels .review-step-title .small-label{margin:0}
+.app-main .company-registration{margin-top:16px;padding:12px}
+.app-main .company-registration[open]>summary{margin-bottom:16px}
+.app-main .company-registration .form-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.app-main .company-registration>label{display:flex;flex-direction:column;gap:8px;margin:12px 0;font-size:13px;font-weight:600}
+.app-main .company-registration textarea{min-height:88px}
+.app-main .brand-assets{gap:16px;align-items:stretch}
+.app-main .brand-assets>.field-block{min-width:0;display:grid;grid-template-rows:auto 108px auto;gap:8px}
+.app-main .brand-assets .file-drop{height:108px;min-height:108px;padding:12px}
+.app-main .brand-assets .checkline{margin:0;align-items:center}
+.app-main .branding-panel .actions,.app-main .collection-log .actions{margin:16px 0 0;gap:8px}
+.app-main .branding-panel #brandingImages{margin:12px 0 0;line-height:1.6}
+.app-main .managed-path{margin:0 0 12px}
+.app-main .managed-file-folders>div{min-height:76px;display:flex;flex-direction:column;justify-content:center}
+.app-main .managed-file-folders strong{font-size:15px;line-height:1.4}
+.app-main .managed-file-folders p{margin:4px 0 0;line-height:1.5}
+.app-main #editionSetupStatus:not(:empty){padding:8px 12px;margin:12px 0 0;background:#f5f8fc;border-radius:6px;line-height:1.5}
+.app-main #editionSetupStatus:empty{display:none}
+@media(max-width:600px){.app-main .company-registration .form-row{grid-template-columns:1fr}.app-main .selection-panels>.surface{padding:12px}.app-main .brand-assets>.field-block{grid-template-rows:auto 96px auto}.app-main .brand-assets .file-drop{height:96px;min-height:96px}}

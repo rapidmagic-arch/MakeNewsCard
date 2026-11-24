@@ -1,6 +1,7 @@
 """Offline Chromium smoke: historical sample, explicit TOP selection."""
 import json,tempfile
 from pathlib import Path
+from meditip.ui_assets import read_editor
 from playwright.sync_api import sync_playwright
 from meditip.db import connect,setup,ensure_edition,get_edition,edition_rows
 from meditip.collect import import_snapshot
@@ -14,7 +15,7 @@ with tempfile.TemporaryDirectory() as d:
         prepare(con,'smoke')
         data={'edition':get_edition(con,'smoke'),'items':edition_rows(con,'smoke'),
               'week_label':'2026-W47','runs':[],'run_total':0,'undated_count':0,'out_of_period_count':0}
-html=(ROOT/'editor.html').read_text().replace('<link rel="stylesheet" href="/assets/editor.css">',
+html=read_editor(ROOT/'editor.html',inline_script=True).replace('<link rel="stylesheet" href="/assets/editor.css">',
     '<style>'+(ROOT/'assets/editor.css').read_text()+'</style>')
 mock='''<script>
 window.__seed=PAYLOAD;

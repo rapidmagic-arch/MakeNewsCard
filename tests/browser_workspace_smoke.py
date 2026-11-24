@@ -1,8 +1,9 @@
 import json,re
 from pathlib import Path
+from meditip.ui_assets import read_editor
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
-html=(root/'editor.html').read_text()
+html=read_editor(root/'editor.html',inline_script=True)
 html=html.replace('<link rel="stylesheet" href="/assets/editor.css">','<style>'+root.joinpath('assets','editor.css').read_text()+'</style>')
 base={'id':'week','title':'테스트 주간호','period_start':'2026-11-16','period_end':'2026-11-22','top_target':4,'status':'draft','issue_number':None,'confirmed_at':None}
 rows=[]

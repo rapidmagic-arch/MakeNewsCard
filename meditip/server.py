@@ -10,21 +10,24 @@ import threading
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, quote
 
 import yaml
 
-from .collect import collect_source, source_specs, import_approval_bytes
+from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail
 from .company import register_company, set_company_order
-from .branding import public_branding, save_branding
+from .branding import public_branding, save_branding, get_branding, IMAGES, save_default_contact
+from .managed_files import ManagedFiles, workspace_for_db, safe_stem
 from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
-from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai
+from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai, repair_medicaltimes_metadata
 from .render import render
 from .mail_templates import TEMPLATES, validate_template_id
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
 from .ai_review import review_payload, analyze, ask, configured as ai_configured
 from .app_config import load_project_env
+from .ui_assets import read_editor
+from .source_links import resolve_source_link, approval_search_url, SEARCH
 from .library import library_page, archived_html
 from .review_groups import init_groups, list_groups, save_group, delete_group, with_groups
 
@@ -39,11 +42,17 @@ def _dates(start, end):
 
 
 def serve(db_path, template_path, editor_path, edition_id, port=8765,
-          sources_path=None, editorial_path=None):
+          sources_path=None, editorial_path=None, workspace=None):
     token = secrets.token_urlsafe(32)
     root = Path(editor_path).resolve().parent
-    load_project_env(root)
-    editor = Path(editor_path).read_text(encoding='utf8')
+    workspace=Path(workspace).resolve() if workspace is not None else workspace_for_db(db_path)
+    load_project_env(workspace)
+    managed=ManagedFiles(workspace)
+    for name in ('meditip-banner-hd.jpg','meditip-footer-hd.jpg','meditip-mvp-banner.jpg'):
+        asset=root/'assets'/'newsletter'/name
+        if asset.is_file():managed.save('branding/defaults',name,asset.read_bytes(),'.jpg')
+    editor = read_editor(editor_path)
+    editor_js = (root/'assets'/'editor.js').read_text(encoding='utf8')
     editor_css = (root/'assets'/'editor.css').read_text(encoding='utf8')
     sources_path = Path(sources_path or root/'config'/'sources.yaml')
     editorial_path = Path(editorial_path or root/'config'/'editorial.yaml')
@@ -53,6 +62,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     with connect(db_path) as con:
         editorial_defaults=yaml.safe_load(editorial_path.read_text(encoding='utf8')) or {}
         init_groups(con,editorial_defaults.get('industry_section_keywords'))
+        branding=get_branding(con)
+        for role in IMAGES:
+            if branding.get(role):managed.brand_image(role,branding[role])
         if get_edition(con,edition_id)['status']=='draft':
             prepare(con, edition_id, with_groups(con,editorial_defaults))
     template_path = str(template_path)
@@ -108,33 +120,48 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 job['current'] = None
                 job['finished_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
-    def run_approval(kind, edition):
+    def run_approval(kinds, edition):
+        """One shared progress job; each requested category succeeds or fails independently."""
+        linked=0
         try:
-            with connect(db_path) as con:
-                ed=require_draft(con,edition)
-                ensure_single_approval_mode(con,kind,ed,'live')
-            result=fetch_approval(kind,ed['period_start'],ed['period_end'])
-            with lock, connect(db_path) as con:
-                ed=require_draft(con,edition)
-                before={x['id'] for x in edition_rows(con,edition)}
-                detail=save_live_approval(con,kind,ed,result)
-                rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                prepare(con,edition,with_groups(con,rules))
-                after={x['id'] for x in edition_rows(con,edition)}
-                log_run(con,'official_live_'+kind,ed['period_start'],ed['period_end'],'success',
-                        detail['pages'],detail['records'],{'method':'official_public_list',**detail},edition_id=edition)
-                job.update(state='finished',processed=1,current=None,
-                           results=[{'source':'official_live_'+kind,'status':'success',**detail}],
-                           new_edition_links=len(after-before))
-        except Exception as exc:
-            error=type(exc).__name__+': '+str(exc)[:220]
+            for kind in kinds:
+                key='official_live_'+kind
+                with lock:job['current']=key
+                try:
+                    with connect(db_path) as con:
+                        ed=require_draft(con,edition)
+                        ensure_single_approval_mode(con,kind,ed,'live')
+                    result=fetch_approval(kind,ed['period_start'],ed['period_end'])
+                    with lock, connect(db_path) as con:
+                        ed=require_draft(con,edition)
+                        before={x['id'] for x in edition_rows(con,edition)}
+                        detail=save_live_approval(con,kind,ed,result)
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        prepare(con,edition,with_groups(con,rules))
+                        after={x['id'] for x in edition_rows(con,edition)}
+                        log_run(con,key,ed['period_start'],ed['period_end'],'success',
+                                detail['pages'],detail['records'],{'method':'official_public_list',**detail},edition_id=edition)
+                        linked+=len(after-before)
+                    outcome={'source':key,'status':'success',**detail}
+                except Exception as exc:
+                    error=type(exc).__name__+': '+str(exc)[:220]
+                    with connect(db_path) as con:
+                        ed=get_edition(con,edition)
+                        log_run(con,key,ed['period_start'],ed['period_end'],'failed',0,0,
+                                {'method':'official_public_list','error':error},edition_id=edition)
+                    outcome={'source':key,'status':'failed','records':0,'issues':[error]}
+                with lock:
+                    job['results'].append(outcome)
+                    job['processed']+=1
+                    job['new_edition_links']=linked
             with lock:
-                job.update(state='failed',error=error,current=None,processed=1)
-            with connect(db_path) as con:
-                log_run(con,'official_live_'+kind,None,None,'failed',0,0,
-                        {'method':'official_public_list','error':error},edition_id=edition)
+                successes=sum(x['status']=='success' for x in job['results'])
+                job.update(state='finished' if successes else 'failed',error=None if successes else '모든 승인·허가 자료 조회 실패')
+        except Exception as exc:
+            with lock:job.update(state='failed',error=type(exc).__name__+': '+str(exc)[:220])
         finally:
             with lock:
+                job['current']=None
                 job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     def run_ai_review(payload, edition):
@@ -167,7 +194,10 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             self.send_header('Content-Security-Policy',
                              "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'")
             if download:
-                self.send_header('Content-Disposition', f'attachment; filename="{download}"')
+                fallback=download.encode('ascii','replace').decode('ascii').replace('?','_')
+                disposition=f'attachment; filename="{fallback}"'
+                if fallback!=download:disposition+="; filename*=UTF-8''"+quote(download,safe='')
+                self.send_header('Content-Disposition',disposition)
             self.end_headers()
             self.wfile.write(body)
 
@@ -182,12 +212,18 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 self._json({'error': 'Localhost only'}, 403)
                 return
             p = urlsplit(self.path).path
+            if (p.startswith('/export/') or (p=='/api/library/html' and parse_qs(urlsplit(self.path).query).get('download')==['1'])) and self.headers.get('Sec-Fetch-Site')=='cross-site':
+                self._json({'error':'Cross-site export not allowed'},403)
+                return
             try:
                 if p == '/':
                     self._respond(200, editor.replace('__LOCAL_TOKEN__', token), 'text/html; charset=utf-8')
                     return
                 if p == '/assets/editor.css':
                     self._respond(200,editor_css,'text/css; charset=utf-8')
+                    return
+                if p == '/assets/editor.js':
+                    self._respond(200,editor_js,'application/javascript; charset=utf-8')
                     return
                 if p == '/api/edition':
                     with connect(db_path) as con:
@@ -197,7 +233,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         top_output_ids=[x['id'] for x in top_output_rows(items,edition['top_target'])]
                         if edition['status']=='confirmed':
                             frozen=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(active['edition'],)).fetchone()
-                            top_output_ids=json.loads(frozen['raw_json']).get('top_output_ids') if frozen else None
+                            snapshot=json.loads(frozen['raw_json']) if frozen else {}
+                            top_output_ids=snapshot.get('top_output_ids')
+                            if isinstance(snapshot.get('items'),list):items=snapshot['items']
                         # Never mix historic global runs or other editions into current counters.
                         runs = [dict(r) for r in con.execute(
                             'SELECT * FROM runs WHERE edition_id=? ORDER BY id DESC LIMIT 30', (active['edition'],))]
@@ -206,8 +244,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         out_of_period = sum(bool(item.get('published_at')) and
                            not edition['period_start'] <= item['published_at'] <= edition['period_end'] for item in items)
                         confirmation = confirm_details(con,active['edition'])
+                        for item in items:
+                            item['original_url'],item['original_link_kind']=resolve_source_link(item)
+                        approval_links={kind:approval_search_url(kind,edition['period_start'],edition['period_end']) for kind in SEARCH}
                     self._json({'edition': edition, 'items': items, 'runs': runs,
-                                'confirmation':confirmation,'top_output_ids':top_output_ids,
+                                'confirmation':confirmation,'top_output_ids':top_output_ids,'approval_links':approval_links,
                                 'week_label':week_label(edition['period_start'],edition['period_end']),
                                 'run_total':total_runs,'undated_count':undated,
                                 'out_of_period_count':out_of_period})
@@ -230,6 +271,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'error':'확정된 뉴스레터가 없거나 접근할 수 없어.'},404)
                     else:
                         filename='newsletter_archive.html' if params.get('download',['0'])[0]=='1' else None
+                        if filename:managed.export_file(eid,'confirmed','newsletter',html,'.html')
                         self._respond(200,html,'text/html; charset=utf-8',download=filename)
                     return
                 if p == '/api/editions':
@@ -249,7 +291,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'sources':[{'key':v['key'],'group':v['group'],'url':v['url']} for v in configured.values()],
                                 'interest_terms':editorial.get('interest_terms',[]),
                                 'industry_section_keywords':editorial.get('industry_section_keywords',{}),
-                                'review_groups':groups,'branding':branding,
+                                'review_groups':groups,'branding':branding,'managed_files':managed.info(),
                                 'top_target':ed['top_target'],'ai_api_available':ai_configured(),
                                 'config_files':['config/sources.yaml','config/editorial.yaml']})
                     return
@@ -272,37 +314,50 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json(job_snapshot())
                     return
                 if p in ('/export/html','/preview/html'):
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        html = confirmed_html(con,active['edition'])
-                        if html is None:
-                            html = render(con,active['edition'],template_path,preview=(p == '/preview/html'))
+                        html = confirmed_html(con,eid)
+                        frozen=html is not None
+                        if not frozen:
+                            html = render(con,eid,template_path,preview=(p == '/preview/html'))
+                    if p == '/export/html':managed.export_file(eid,'confirmed' if frozen else 'draft','newsletter',html,'.html')
                     self._respond(200, html, 'text/html; charset=utf-8',
-                                  download=f'newsletter_{active["edition"]}.html' if p == '/export/html' else None)
+                                  download=f'newsletter_{safe_stem(eid)}.html' if p == '/export/html' else None)
                     return
                 if p == '/export/snapshot':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        row=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(active['edition'],)).fetchone()
+                        row=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(eid,)).fetchone()
                     if not row:
                         self._json({'error':'확정본이 없어.'},404)
                     else:
+                        managed.export_file(eid,'confirmed','snapshot',row['raw_json'],'.json')
                         self._respond(200,row['raw_json'],'application/json; charset=utf-8',
-                                      download=f'confirmed_{active["edition"]}.json')
+                                      download=f'confirmed_{safe_stem(eid)}.json')
                     return
                 if p == '/export/ai':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        payload=review_payload(con,active['edition'])
-                    self._respond(200,json.dumps(payload,ensure_ascii=False,indent=2),
-                                  'application/json; charset=utf-8',download=f'ai_candidates_{active["edition"]}.json')
+                        payload=review_payload(con,eid)
+                    body=json.dumps(payload,ensure_ascii=False,indent=2)
+                    managed.export_file(eid,'ai','candidates',body,'.json')
+                    self._respond(200,body,'application/json; charset=utf-8',download=f'ai_candidates_{safe_stem(eid)}.json')
                     return
                 if p == '/export/json':
+                    eid=active['edition']
                     with connect(db_path) as con:
-                        obj = {'edition': get_edition(con, active['edition']),
-                               'items': edition_rows(con, active['edition'])}
-                    self._respond(200, json.dumps(obj, ensure_ascii=False, indent=2),
-                                  'application/json; charset=utf-8',
-                                  download=f'newsletter_{active["edition"]}.json')
+                        obj = {'edition': get_edition(con,eid),'items':edition_rows(con,eid)}
+                        frozen=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(eid,)).fetchone()
+                    if frozen:
+                        snapshot=json.loads(frozen['raw_json'])
+                        obj={'edition':snapshot['edition'],'items':snapshot['items']}
+                    body=json.dumps(obj,ensure_ascii=False,indent=2)
+                    managed.export_file(eid,'confirmed' if frozen else 'draft','data',body,'.json')
+                    self._respond(200,body,'application/json; charset=utf-8',download=f'newsletter_{safe_stem(eid)}.json')
                     return
                 self._json({'error': 'Not found'}, 404)
+            except OSError:
+                self._json({'error':'관리 파일 저장 또는 읽기 실패 · 폴더 권한 및 여유 공간을 확인하세요.'},500)
             except (ValueError, KeyError, TypeError) as exc:
                 self._json({'error': str(exc)}, 400)
 
@@ -321,13 +376,18 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 p = urlsplit(self.path).path
-                max_payload = 4_200_000 if p == '/api/branding/save' else (4_000_000 if p == '/api/approval/import' else (1_000_000 if p == '/api/ai/import' else 100_000))
+                max_payload = 4_200_000 if p == '/api/branding/save' else (4_000_000 if p == '/api/approval/import' else (1_500_000 if p == '/api/ai/import' else 100_000))
                 if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
                 if not isinstance(obj, dict):
                     raise ValueError('JSON object required')
                 p = urlsplit(self.path).path
+                if p == '/api/files/open':
+                    try:managed.open_folder()
+                    except OSError as exc:raise ValueError('탐색기 실행 실패 · 경로 복사로 직접 열어 주세요.') from exc
+                    self._json({'ok':True,'path':str(managed.root)})
+                    return
                 if p == '/api/collect':
                     keys = obj.get('sources')
                     mode = obj.get('method', 'board')
@@ -347,8 +407,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     if any(configured[k]['group'] == 'industry' for k in keys) and obj.get('rights_acknowledged') is not True:
                         raise ValueError('Check media website access/usage conditions before collection')
                     with lock:
-                        if job['state'] == 'running':
-                            self._json({'error': 'Collection already running'}, 409)
+                        if job['state'] == 'running' or ai_job['state']=='running':
+                            self._json({'error': 'Collection or analysis already running'}, 409)
                             return
                         with connect(db_path) as con:
                             edition = require_draft(con, active['edition'])
@@ -365,21 +425,41 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 if p == '/api/approval/collect':
                     kind=obj.get('kind')
-                    if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
+                    if not isinstance(kind,str) or (kind!='all' and kind not in APPROVAL_SPECS):
                         raise ValueError('Unknown approval category')
+                    kinds=list(APPROVAL_SPECS) if kind=='all' else [kind]
                     with lock:
                         if job['state']=='running' or ai_job['state']=='running':
                             self._json({'error':'현재 수집 또는 분석 작업 종료 후 실행하세요.'},409)
                             return
                         with connect(db_path) as con:
                             ed=require_draft(con,active['edition'])
-                            ensure_single_approval_mode(con,kind,ed,'live')
+                            if kind!='all':ensure_single_approval_mode(con,kind,ed,'live')
                         job.clear()
-                        job.update(state='running',approval_kind=kind,results=[],processed=0,total=1,
-                                   current='official_live_'+kind,error=None,edition_id=ed['id'],
+                        job.update(state='running',approval_kind=kind,results=[],processed=0,total=len(kinds),
+                                   current='official_live_'+kinds[0],error=None,edition_id=ed['id'],
                                    started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
-                        threading.Thread(target=run_approval,args=(kind,ed['id']),daemon=True).start()
+                        threading.Thread(target=run_approval,args=(kinds,ed['id']),daemon=True).start()
                     self._json(job_snapshot(),202)
+                    return
+                if p == '/api/article/recheck':
+                    item_id=obj.get('item_id')
+                    if not isinstance(item_id,str):raise ValueError('Select an article')
+                    with lock, connect(db_path) as con:
+                        if job['state']=='running' or ai_job['state']=='running':
+                            raise ValueError('수집 또는 분석 작업 종료 후 재확인하세요.')
+                        ed=require_draft(con,active['edition'])
+                        row=next((x for x in edition_rows(con,ed['id']) if x['id']==item_id),None)
+                        if row is None or row['source_key']!='medicaltimes':
+                            raise ValueError('현재 초안의 메디칼타임즈 기사만 지원합니다.')
+                    # Network request outside the write lock; verify state again before writing.
+                    metadata=fetch_medicaltimes_detail(row['url'])
+                    with lock, connect(db_path) as con:
+                        if active['edition']!=ed['id'] or job['state']=='running' or ai_job['state']=='running':
+                            raise ValueError('작업 회차 또는 수집 상태가 변경되었습니다. 다시 확인하세요.')
+                        rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                        result=repair_medicaltimes_metadata(con,ed['id'],item_id,row['content_sha'],metadata,with_groups(con,rules))
+                    self._json({'ok':True,**result})
                     return
                 if p == '/api/edition/select':
                     target=obj.get('edition_id')
@@ -415,8 +495,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     return
                 if p == '/api/ai/review':
                     with lock:
-                        if ai_job['state']=='running':
-                            self._json({'error':'AI 분석이 이미 진행 중이야.'},409);return
+                        if ai_job['state']=='running' or job['state']=='running':
+                            self._json({'error':'수집 또는 AI 분석이 이미 진행 중입니다.'},409);return
                         with connect(db_path) as con:
                             require_draft(con,active['edition'])
                             payload=review_payload(con,active['edition'],obj.get('ids'))
@@ -462,8 +542,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     self._json({'ok': True, 'edition_id': eid})
                     return
                 with lock, connect(db_path) as con:
+                    if p == '/api/branding/default-contact':
+                        self._json({'ok':True,'default_contact':save_default_contact(con,obj)})
+                        return
                     if p == '/api/branding/save':
-                        self._json({'ok':True,'branding':save_branding(con,obj)})
+                        self._json({'ok':True,'branding':save_branding(con,obj,managed)})
                         return
                     if p == '/api/company/register':
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
@@ -489,10 +572,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         if not isinstance(kind,str) or kind not in APPROVAL_SPECS:
                             raise ValueError('Unknown approval category')
                         ensure_single_approval_mode(con,kind,ed,'csv')
+                        saved=managed.import_file(ed['id'],'approval/'+kind,obj.get('filename') or kind,raw,'.csv')
                         result=import_approval_bytes(con,raw,kind,edition=ed)
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
                         prepare(con,ed['id'],with_groups(con,rules))
-                        self._json({'ok':True,**result})
+                        self._json({'ok':True,**result,'managed_file':saved})
                         return
                     if p == '/api/edition/publication':
                         require_draft(con,active['edition'])
@@ -529,8 +613,22 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'ok':True,**result})
                         return
                     if p == '/api/ai/import':
-                        touched=import_ai(con,active['edition'],obj)
-                        self._json({'ok':True,'analysed':touched})
+                        import base64,binascii
+                        eid=active['edition']
+                        require_draft(con,eid)
+                        if 'content' in obj:
+                            try:raw=base64.b64decode(obj['content'],validate=True)
+                            except (ValueError,TypeError,binascii.Error):raise ValueError('Invalid JSON file')
+                            if not raw or len(raw)>1_000_000:raise ValueError('JSON size must be 1..1000000 bytes')
+                            payload=json.loads(raw.decode('utf-8-sig'))
+                        else:
+                            payload=obj
+                            raw=json.dumps(obj,ensure_ascii=False,indent=2).encode('utf8')
+                        if not isinstance(payload,dict) or not isinstance(payload.get('items'),list):
+                            raise ValueError('items array required')
+                        saved=managed.import_file(eid,'ai',obj.get('filename') or 'ai_result',raw,'.json')
+                        touched=import_ai(con,eid,payload)
+                        self._json({'ok':True,'analysed':touched,'managed_file':saved})
                         return
                     if p == '/api/decision':
                         update_decision(con, active['edition'], obj['item_id'], obj['changes'])
@@ -547,6 +645,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         self._json({'error': 'Unknown endpoint'}, 404)
                         return
                 self._json({'ok': True})
+            except OSError:
+                self._json({'error':'관리 파일 저장 또는 읽기 실패 · 폴더 권한 및 여유 공간을 확인하세요.'},500)
             except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
                 self._json({'error': str(exc)}, 400)
 

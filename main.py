@@ -18,6 +18,7 @@ from meditip.workflow import confirm, confirmed_html, week_label
 from meditip.ai_review import review_payload, analyze
 from meditip.server import serve
 from meditip.app_config import load_project_env
+from meditip.managed_files import ManagedFiles, workspace_for_db
 
 ROOT=Path(__file__).resolve().parent
 DEFAULT_DB=ROOT/'data'/'newsletter.db'
@@ -91,23 +92,37 @@ def main():
             # Actual website conditions must be checked by the operator before live media crawling.
             print(json.dumps(collect_source(con,spec,args.start,args.end,args.method,args.max_pages),ensure_ascii=False,indent=2))
         elif args.command=='import-json':
-            payload=json.loads(Path(args.path).read_text(encoding='utf8'))
+            path=Path(args.path);raw=path.read_bytes();payload=json.loads(raw.decode('utf-8-sig'))
+            ManagedFiles(workspace_for_db(args.db)).save('imports/unassigned/json',path.name,raw,'.json')
             print('Imported',import_snapshot(con,payload,args.source),'records (original source not rechecked)')
         elif args.command=='import-approval-csv':
+            path=Path(args.path)
+            ManagedFiles(workspace_for_db(args.db)).save('imports/unassigned/approval/'+args.kind,path.name,path.read_bytes(),'.csv')
             print(json.dumps(import_approval_csv(con,args.path,args.kind),ensure_ascii=False,indent=2))
         elif args.command=='export-html':
             html=confirmed_html(con,args.id) or render(con,args.id,ROOT/'templates'/'892_slots_original.html')
-            out=Path(args.out) if args.out else ROOT/'output'/f'newsletter_{args.id}.html'
+            if not args.out:
+                managed=ManagedFiles(workspace_for_db(args.db))
+                saved=managed.export_file(args.id,'confirmed' if confirmed_html(con,args.id) is not None else 'draft','newsletter',html,'.html')
+                print('HTML saved:',managed.root/saved);return
+            out=Path(args.out)
             out.parent.mkdir(parents=True,exist_ok=True)
             out.write_text(html,encoding='utf8')
             print('Rendered draft:',out,'bytes:',len(html.encode('utf8')))
         elif args.command=='export-ai':
             payload=review_payload(con,args.id)
-            out=Path(args.out) if args.out else ROOT/'output'/f'candidates_{args.id}.json'
+            if not args.out:
+                managed=ManagedFiles(workspace_for_db(args.db))
+                saved=managed.export_file(args.id,'ai','candidates',json.dumps(payload,ensure_ascii=False,indent=2),'.json')
+                print('AI input saved:',managed.root/saved);return
+            out=Path(args.out)
             out.parent.mkdir(parents=True,exist_ok=True)
             out.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf8');print('AI input saved:',out)
         elif args.command=='import-ai':
-            payload=json.loads(Path(args.path).read_text(encoding='utf8'))
+            from meditip.workflow import require_draft
+            require_draft(con,args.id)
+            path=Path(args.path);raw=path.read_bytes();payload=json.loads(raw.decode('utf-8-sig'))
+            ManagedFiles(workspace_for_db(args.db)).import_file(args.id,'ai',path.name,raw,'.json')
             print('AI proposals imported:',import_ai(con,args.id,payload),'(no human override modified)')
         elif args.command=='issue-status':
             e=get_edition(con,args.id)

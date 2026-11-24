@@ -96,7 +96,72 @@ def _listed_date(context):
     return result,'list_context' if result else 'unknown'
 
 
+def medicaltimes_article_id(url):
+    p=urlsplit(url)
+    if p.scheme!='https' or p.hostname!='www.medicaltimes.com' or p.path!='/Main/News/NewsView.html':
+        return None
+    ids=parse_qs(p.query).get('ID',[])
+    return ids[0] if len(ids)==1 and ids[0].isdecimal() else None
+
+
+def parse_medicaltimes_list(content,base,section):
+    """Only dedicated list cards; do not let sidebar or body links overwrite metadata."""
+    from .metadata_quality import title_needs_review
+    soup=BeautifulSoup(content,'html.parser');out={}
+    for card in soup.select('article.newsList_cont'):
+        a=card.select_one('a[href]')
+        if a is None:continue
+        sid=medicaltimes_article_id(urljoin(base,a['href']))
+        if not sid:continue
+        heading=a.select_one('.headLine')
+        date_node=a.select_one('.newsList_cont_date')
+        title=' '.join(heading.get_text(' ',strip=True).split()) if heading else ''
+        raw_date=date_node.get_text(' ',strip=True) if date_node else ''
+        date=norm_date(raw_date)
+        row=dict(source_key='medicaltimes',source_group='industry',section=section,
+                 source_id=sid,url='https://www.medicaltimes.com/Main/News/NewsView.html?ID='+sid,
+                 title=title or '[제목 확인 필요] 메디칼타임즈 기사 '+sid,published_at=date,
+                 verification='metadata_only' if title else 'needs_title_review',
+                 relevance='review_needed',mandatory=False,
+                 original_metadata={'discovery_method':'medicaltimes_list','list_url':base,
+                                    'title_extraction':'dedicated_headline' if title else 'missing',
+                                    'date_extraction':'dedicated_list_date' if date else 'unknown',
+                                    'raw_date_text':raw_date[:150]})
+        if title_needs_review(row):row['verification']='needs_title_review'
+        quality=lambda x:(x['verification']!='needs_title_review',bool(x['published_at']))
+        if sid not in out or quality(row)>quality(out[sid]):out[sid]=row
+    return list(out.values())
+
+
+def parse_medicaltimes_detail(content,url):
+    """Verify only visible headline and explicitly labelled publication date."""
+    from .metadata_quality import title_needs_review
+    if not medicaltimes_article_id(url):raise ValueError('메디칼타임즈 기사 URL 확인 필요')
+    soup=BeautifulSoup(content,'html.parser')
+    headings=soup.select('.viewTitle_wrap #NewsTitle')
+    dates=soup.select('.viewTitle_wrap .date_info span')
+    if len(headings)!=1:raise ValueError('원문 제목을 확인할 수 없습니다.')
+    title=' '.join(headings[0].get_text(' ',strip=True).split())
+    if title_needs_review({'source_key':'medicaltimes','title':title}):raise ValueError('원문 제목 검증 실패')
+    published={norm_date(n.get_text(' ',strip=True)) for n in dates if n.get_text(' ',strip=True).startswith('발행날짜:')}
+    if len(published)!=1 or None in published:raise ValueError('원문 발행일을 확인할 수 없습니다.')
+    return {'title':title,'published_at':published.pop()}
+
+
+def fetch_medicaltimes_detail(url):
+    sid=medicaltimes_article_id(url)
+    if not sid:raise ValueError('메디칼타임즈 기사 URL 확인 필요')
+    target='https://www.medicaltimes.com/Main/News/NewsView.html?ID='+sid
+    with requests.Session() as session:
+        try:res=get(session,target,'www.medicaltimes.com')
+        except requests.RequestException as exc:raise ValueError('원문 조회 실패: '+type(exc).__name__) from exc
+        if medicaltimes_article_id(res.url)!=sid:raise ValueError('원문 기사 식별자 불일치')
+        return parse_medicaltimes_detail(res.content,res.url)
+
+
 def parse_public_list(content,base,source_key,source_group,section):
+    if source_key=='medicaltimes':
+        return parse_medicaltimes_list(content,base,section)
     soup=BeautifulSoup(content,'html.parser');out={}
     for a in soup.find_all('a',href=True):
         href=urljoin(base,a['href']);p=urlparse(href)
