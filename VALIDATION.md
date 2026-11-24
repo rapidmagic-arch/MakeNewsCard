@@ -84,3 +84,8 @@
 ## v0.14 original link resolution
 - Official public GET form and result checked for 2026-11-20: clinical ST2/searchKeyword=SRP-9001; treatment prductName=티쎈트릭(RO554-1267), applyEntpName=서울대학교병원; drug sItemName=프레비미스미니정(레테르모비르)20밀리그램, sEntpName=한국엠에스디(주). Each observed result showed 1 record with matching date and product. This is evidence of supported query parameters, not a guarantee for every record.
 - `source_links.py` centralizes URL generation. Unit and browser tests cover direct URL priority, search fallback, URL encoding, same output in both templates, unchanged stored identities, and prior frozen HTML behavior. Live external results may change after publication.
+
+## v0.14 managed user files
+- ManagedFiles validates directory containment, normalizes names and uses content-derived versions with atomic writes. Exact bytes of imported CSV and JSON are kept, legacy brand images are copied from the DB, and explicit exports are mirrored to persistent files without changing the browser download flow.
+- Unit tests cover path escape rejection, filename collisions, repeat content and version retention. HTTP/browser tests cover original import bytes, duplicate export behavior, actual folder path and confirmed HTML. Windows package smoke checks folders and an actual HTML export under external --data-dir, not the temporary executable extraction folder.
+- DB remains the authoritative editorial/brand state. Files are retained copies; historical imports that were never stored cannot be reconstructed. A failed import can leave its input file in the archive. No automatic cleanup or migration of arbitrary old files.
