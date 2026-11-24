@@ -22,7 +22,7 @@ def public_branding(con):
     return {**{key:data.get(key,'') for key in FIELDS},
             **{key+'_custom':bool(data.get(key)) for key in IMAGES},'sample_contact':dict(SAMPLE_CONTACT)}
 
-def save_branding(con,obj):
+def save_branding(con,obj,managed=None):
     data=get_branding(con)
     for key,limit in FIELDS.items():
         value=obj.get(key,'')
@@ -50,6 +50,9 @@ def save_branding(con,obj):
         elif not raw.startswith(b'\x89PNG\r\n\x1a\n') or raw[12:16]!=b'IHDR':
             raise ValueError('Invalid PNG')
         data[key]=image
+    if managed:
+        for key in IMAGES:
+            if data.get(key):managed.brand_image(key,data[key])
     con.execute("INSERT INTO newsletter_branding VALUES('branding',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (json.dumps(data,ensure_ascii=False),))
     con.commit()
