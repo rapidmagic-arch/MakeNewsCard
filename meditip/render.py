@@ -202,8 +202,13 @@ def render(con,edition_id,template_path,final=False,preview=False,template_id=No
     contact=soup.select_one('[data-contact-slot]')
     if contact:
         contact.clear()
-        for line in ['MEDiTIP 뉴스레터 · 의약품 시장 정보 제공']+contact_lines(branding):
-            if contact.contents:contact.append(soup.new_tag('br'))
+        heading=soup.new_tag('strong')
+        heading['style']='font-size:14px;color:#153b62'
+        heading.string='MEDiTIP 뉴스레터 · 의약품 시장 정보 제공'
+        contact.append(heading)
+        for line in contact_lines(branding):
+            contact.append(soup.new_tag('br'))
+            # Preserve normal text when an address/contact is changed; never bake it into an image.
             contact.append(line)
     first=soup.select_one('#i8voq4');second=soup.select_one('#icsna')
     if not first or not second:raise ValueError('Original 892 TOP layout markers not found')
