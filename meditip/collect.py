@@ -265,19 +265,24 @@ def import_snapshot(con,payload,source='historical_sample'):
 
 
 def import_approval_csv(con,path,kind='clinical'):
+    from pathlib import Path
+    return import_approval_bytes(con,Path(path).read_bytes(),kind)
+
+
+def import_approval_bytes(con,content,kind='clinical',edition=None):
     """User-provided export fallback. CSV metadata is NOT an official source verification.
     Supports clinical/treatment/drug. No original event ID is invented.
     """
     import csv,hashlib
     from pathlib import Path
     if kind not in ('clinical','treatment','drug'):raise ValueError('Unknown approval category')
-    content=Path(path).read_bytes()
     decoded=None
     for codec in ('utf-8-sig','cp949'):
         try:decoded=content.decode(codec);break
         except UnicodeDecodeError:pass
     if decoded is None:raise ValueError('CSV encoding not supported')
-    rows=csv.DictReader(decoded.splitlines())
+    import io
+    rows=csv.DictReader(io.StringIO(decoded))
     if not rows.fieldnames:raise ValueError('Empty CSV')
     official={'clinical':'https://nedrug.mfds.go.kr/searchClinic',
               'treatment':'https://nedrug.mfds.go.kr/pbp/CCBBQ01',
@@ -291,6 +296,8 @@ def import_approval_csv(con,path,kind='clinical'):
                field('제품명','품목명','제품명칭'))
         if not approved or not title:
             skipped.append({'line':line,'reason':'required approval date or title missing'});continue
+        if edition and not edition['period_start']<=approved<=edition['period_end']:
+            skipped.append({'line':line,'reason':'outside edition period'});continue
         event=field('승인번호','접수번호','허가번호') or hashlib.sha256(json.dumps(src,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:20]
         source_key=f'official_csv_{kind}'
         item={'source_key':source_key,'source_group':kind,
@@ -303,5 +310,5 @@ def import_approval_csv(con,path,kind='clinical'):
         save_item(con,item);n+=1
     con.commit()
     log_run(con,f'csv_{kind}',None,None,'partial',0,n,
-            {'method':'user_provided_csv','skipped':skipped,'not_official_live_collection':True})
+            {'method':'user_provided_csv','skipped':skipped,'not_official_live_collection':True},edition_id=edition['id'] if edition else None)
     return {'imported':n,'skipped':skipped}
