@@ -19,13 +19,14 @@ def offline_official(kind,start,end):
     total,rows=parse_approval_page(content,kind,start,end)
     return dict(total=total,pages=1,rows=rows,query_url=approval_url(kind,start,end))
 server.fetch_approval=offline_official
+server.fetch_medicaltimes_detail=lambda url:{'title':'메디팁 시장 테스트 기사','published_at':'2026-11-17'}
 with tempfile.TemporaryDirectory() as tmp:
     db=Path(tmp)/'browser.db'
     with connect(db) as con:
         setup(con)
         ensure_edition(con,'week','2026-11-16','2026-11-22')
         save_item(con,dict(source_key='medicaltimes',source_group='industry',section='industry.unclassified',
-          title='메디팁 시장 테스트 기사',url='https://www.medicaltimes.com/Main/News/View.html?ID=9123',
+          title='메디팁 시장 테스트 기사 [메디칼타임즈=기자] 본문 2026-11-17 10:00:00',url='https://www.medicaltimes.com/Main/News/NewsView.html?ID=9123',
           published_at='2026-11-17'))
         con.commit();prepare(con,'week')
     with socket.socket() as sock:
@@ -58,7 +59,17 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(page.locator('#selectedCount')).to_have_text('선택 1건')
         page.locator('[data-card-select]').uncheck()
         page.locator('#viewModeToggle').click()
+        page.locator('#qualityFilter').select_option('title')
+        expect(page.locator('.queue-row')).to_have_count(1)
+        expect(page.locator('.queue-chips .tag.warn')).to_have_text('제목 확인')
         page.locator('.queue-open').first.click()
+        expect(page.locator('.original-heading .original-link')).to_have_attribute('href','https://www.medicaltimes.com/Main/News/NewsView.html?ID=9123')
+        expect(page.locator('.detail-title .original-link')).to_be_visible()
+        page.locator('#recheckMetadata').click()
+        expect(page.locator('#recheckStatus')).to_contain_text('원본 메타데이터 갱신')
+        expect(page.locator('.source-title')).to_have_text('메디팁 시장 테스트 기사')
+        expect(page.locator('.queue-row')).to_have_count(0)
+        page.locator('#qualityFilter').select_option('all')
         page.locator('#detailCompany').check()
         expect(page.locator('#companyList')).to_contain_text('메디팁 시장 테스트 기사')
         page.locator('#detailTop').check()
@@ -111,6 +122,7 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(frame.locator('[data-contact-slot]')).to_contain_text('Browser Test Contact')
         expect(frame.locator('[data-image-slot="banner"] img')).to_have_js_property('naturalWidth',1600)
         expect(frame.locator('[data-image-slot="footer"] img')).to_have_js_property('naturalWidth',1600)
+        assert frame.locator('[data-contact-slot]').evaluate('el=>el.getBoundingClientRect().bottom<=el.parentElement.nextElementSibling.getBoundingClientRect().top+1')
         page.locator('#confirmedBy').fill('Test Operator')
         page.locator('#finalAck').check()
         page.locator('#confirmIssue').click()
