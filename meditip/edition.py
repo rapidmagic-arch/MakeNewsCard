@@ -300,7 +300,7 @@ def repair_medicaltimes_metadata(con,edition_id,item_id,expected_sha,metadata,co
             # Old machine proposals used the previous metadata; do not treat them as current.
             # Human title/summary/section, inclusion, company and TOP decisions are untouched.
             con.execute("""UPDATE decisions SET ai_score=NULL,ai_reason=NULL,ai_summary=NULL,
-                           ai_section=NULL,ai_recommended=NULL,ai_relevance=NULL
+                           ai_section=NULL,ai_recommended=0,ai_relevance=NULL
                            WHERE edition_id=? AND item_id=?""",(eid,item_id))
     con.commit()
     return {'title':title,'published_at':published,'changed':changed,
