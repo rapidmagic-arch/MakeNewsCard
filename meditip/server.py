@@ -163,6 +163,9 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         items = edition_rows(con, active['edition'])
                         from .render import top_output_rows
                         top_output_ids=[x['id'] for x in top_output_rows(items,edition['top_target'])]
+                        if edition['status']=='confirmed':
+                            frozen=con.execute('SELECT raw_json FROM edition_confirmations WHERE edition_id=?',(active['edition'],)).fetchone()
+                            top_output_ids=json.loads(frozen['raw_json']).get('top_output_ids') if frozen else None
                         # Never mix historic global runs or other editions into current counters.
                         runs = [dict(r) for r in con.execute(
                             'SELECT * FROM runs WHERE edition_id=? ORDER BY id DESC LIMIT 30', (active['edition'],))]
