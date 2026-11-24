@@ -503,7 +503,7 @@ $('templateChoice').addEventListener('change',async()=>{
 $('confirmIssue').addEventListener('click',async()=>{if(!db||db.edition.status==='confirmed')return;
  if(!$('finalAck').checked){$('confirmMessage').textContent='수집·내용·미연결 항목 검토 확인을 선택해.';return}
  if(!confirm('이 회차를 확정하면 수정할 수 없어. 현재 HTML과 원본 스냅샷을 고정할까?'))return;
- try{await savePublication();const result=await api('/api/confirm',{confirmed_by:$('confirmedBy').value.trim(),issue_number:$('issueNumber').value.trim(),acknowledged:true});
+ try{const result=await api('/api/confirm',{confirmed_by:$('confirmedBy').value.trim(),issue_number:$('issueNumber').value.trim(),publication_date:$('publicationDate').value,acknowledged:true});
  $('confirmMessage').textContent='확정 완료 · SHA256 '+result.html_sha256.slice(0,12);await load();refreshPreview();}
  catch(e){$('confirmMessage').textContent='확정 오류: '+e.message;}});
 function renderReviewGroups(){
