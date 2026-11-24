@@ -7,20 +7,13 @@
 <button class="nav-item" data-view="edit">≡ 기사 검토·편집</button>
 <button class="nav-item" data-view="preview">▤ 미리보기·확정</button>
 <button class="nav-item" data-view="settings">⚙ 환경설정</button>
-</aside><div class="app-main"><header><h1 id="pageHeading">뉴스레터 대시보드</h1><small id="headerEdition">회차를 불러오는 중</small>
+</aside><div class="app-main"><header><h1 id="pageHeading">뉴스레터 도서관</h1><small id="headerEdition">회차를 불러오는 중</small>
 <div class="edition-context"><button id="openEditionDialog" type="button" hidden>회차 변경</button></div></header>
 <dialog id="editionDialog" aria-labelledby="editionDialogTitle" class="edition-dialog"><h2 id="editionDialogTitle">작업 회차 변경</h2>
 <p class="muted">초안은 편집 가능하고, 확정된 회차는 읽기 전용이야. 보관함 열람만으로 작업 회차가 바뀌지는 않아.</p>
 <label for="editionPicker">이동할 회차</label><select id="editionPicker"></select>
 <div class="actions"><button id="applyEditionSwitch" class="primary">회차 열기</button><button id="closeEditionDialog">취소</button></div></dialog>
 <main><section class="view-panel" id="view-dashboard">
-<h2 class="view-title">현재 회차</h2><p class="view-subtitle">수집 현황과 편집·확정 상태를 확인하고 다음 업무로 이동해.</p>
-<div class="dashboard-grid"><div class="surface"><small>자료 수집 기간</small><strong id="dashPeriod">—</strong></div>
-<div class="surface"><small>수집 후보 / 실제 수록</small><strong id="dashCount">—</strong></div>
-<div class="surface"><small>회차 상태</small><strong id="dashStatus">—</strong></div></div>
-<div class="surface airy"><h3>작업 흐름</h3><p class="muted">자료 수집 → 분야별 추천 확인 → 담당자 편집 → 미리보기 → 최종 확정</p>
-<div class="actions"><button data-go="collect" class="primary">자료 수집</button><button data-go="edit">기사 검토</button><button data-go="preview">출력 확인</button></div>
-<p id="dashAlert" class="status" role="status"></p></div>
 <section class="surface library-surface" aria-label="뉴스레터 도서관">
  <div class="library-title"><div><h3>뉴스레터 도서관</h3><p class="muted">확정된 뉴스레터를 조회해. 보관함에서 보는 것만으로 현재 작업 회차가 바뀌지는 않아.</p></div></div>
  <div class="library-filters"><label>상태 <select id="libraryStatus"><option value="confirmed">확정본</option><option value="draft">작업 중인 초안</option><option value="all">전체 회차</option></select></label>
@@ -52,7 +45,7 @@
  <progress id="collectionProgress" value="0" max="1" aria-label="사이트별 수집 진행률"></progress>
  <div id="collectionResults" class="results collection-problems" aria-label="0건 또는 수집 오류" hidden></div>
  <p class="hint collect-coverage-hint">수집 작업이 끝나도 전체 자료 확보 여부는 별도 검증이 필요해.</p>
-</section></section>
+</section><details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="collectionSummary" class="hint"></div><div id="runs" class="hint"></div></details></section>
 <section class="view-panel" id="view-edit" hidden>
   <div class="review-heading">
     <div><h2 class="view-title">기사 검토 작업대</h2><p class="view-subtitle">추천을 먼저 확인하고, 필요한 기사만 추가 선택한 뒤 수록 목록에서 최종 편집해.</p></div>
@@ -66,12 +59,12 @@
   </section>
   <section class="surface review-queue" aria-label="기사 선택 및 검토">
     <div class="review-step-title"><div><h3>2. 추천 및 검토 대기열</h3><p class="muted">추천 외 기사도 ‘검토 필요’·‘그 외’·‘전체’에서 찾아 수록할 수 있어.</p></div></div>
-    <div class="industry-counts" id="industryCounts" aria-label="분야별 후보·추천·수록 현황"></div>
-    <div id="reviewGroupCounts" class="review-group-chips" aria-label="추천 그룹별 기사 건수"></div>
+    <div class="stats" id="stats" aria-label="전체 회차 집계"></div>
+    <p class="hint">탭 건수는 전체 회차 기준이며, 아래 필터는 현재 목록에 함께 적용돼.</p>
      <div id="queueTabs" class="queue-tabs" role="tablist" aria-label="기사 검토 상태">
       <button class="queue-tab" data-queue="recommended" role="tab" aria-selected="true">추천 후보</button>
       <button class="queue-tab" data-queue="review" role="tab" aria-selected="false">추가 검토</button>
-      <button class="queue-tab" data-queue="other" role="tab" aria-selected="false">그 외</button>
+      <button class="queue-tab" data-queue="other" role="tab" aria-selected="false">기타 자료</button>
       <button class="queue-tab" data-queue="included" role="tab" aria-selected="false">수록 목록</button>
       <button class="queue-tab" data-queue="all" role="tab" aria-selected="false">전체</button>
     </div>
@@ -106,11 +99,10 @@
     <p id="feedback" class="status" role="status"></p>
   </section>
   <details class="surface top-review" aria-label="주요 뉴스 선정"><summary>주요 뉴스 TOP 선정·순서 관리 (선택한 기사만)</summary>
-    <div class="review-step-title"><div><h3>4. 주요 뉴스 카드 선정</h3><p class="muted">본문 수록과 독립적이야. 선택한 기사만 목록에 표시하며, 위아래 버튼으로 순서를 조정해.</p></div><div><label for="target" class="small-label">목표 건수</label><input type="number" min="0" max="100" id="target" style="width:75px"><button id="saveTarget">적용</button></div></div>
+    <div class="review-step-title"><div><h3>4. 주요 뉴스 카드 선정</h3><p class="muted">본문 수록과 독립적이야. 순위 기준 상위 후보만 출력하고 나머지는 예비 후보로 유지해.</p></div><div><label for="target" class="small-label">출력 건수</label><input type="number" min="0" max="100" id="target" style="width:75px"><button id="saveTarget">적용</button></div></div>
     <p id="targetHint" class="hint"></p><div id="top"></div>
    </details>
-  <div class="stats" id="stats" aria-label="회차 후보 집계"></div>
-  <details class="surface secondary-tools"><summary>회차별 수집 이력</summary><div id="runs" class="hint"></div></details>
+
 </section>
 <section class="view-panel" id="view-preview" hidden><h2 class="view-title">뉴스레터 미리보기·확정</h2><p class="view-subtitle">최종 확정 시 현재 기사 선택과 HTML을 보존해. 확정 후에는 수정할 수 없으며, 메일 발송은 수행하지 않아.</p>
 <div class="surface airy"><div class="template-choice"><label for="templateChoice">뉴스레터 출력 템플릿</label> <select id="templateChoice"><option value="classic">템플릿 1 · 892호 기존 형식</option><option value="outlook_cards">템플릿 2 · Outlook 뉴스카드</option></select><p class="status" id="templateMessage" role="status">회차별로 저장되며 확정 이후 변경할 수 없어.</p></div><div class="actions"><button id="reloadPreview">미리보기 갱신</button><a class="button primary" href="/export/html" download>뉴스레터 HTML 다운로드</a><a class="button" href="/export/snapshot" download>확정 원본 JSON</a></div><p class="status" id="finalState" role="status"></p>
@@ -287,13 +279,6 @@ function isSuggested(x){if(x.verification==='needs_title_review'||(x.title||'').
 function industryRows(){return db.items.filter(x=>x.source_group==='industry')}
 function groupLabel(id){return reviewGroups.find(g=>g.id===id)?.label||'그룹 미지정'}
 function scopeIndustry(){const s=$('industrySection').value;return industryRows().filter(x=>s==='all'||candidateSection(x)===s)}
-function showIndustryCounts(){
- const rows=industryRows(), labels=[['industry.policy','정책'],['industry.market','시장'],['industry.global','글로벌'],['industry.rnd','연구개발'],['industry.unclassified','미분류']];
- $('industryCounts').innerHTML=labels.map(([key,label])=>{
-  const list=rows.filter(x=>candidateSection(x)===key);
-  return '<div class="stat"><b>'+list.length+'</b><small>'+label+' · 추천 '+list.filter(isSuggested).length+' / 수록 '+list.filter(x=>x.include_detail).length+'</small></div>'}).join('');
-  $('reviewGroupCounts').innerHTML=reviewGroups.map(group=>'<button type="button" class="group-chip" data-group-filter="'+esc(group.id)+'">'+esc(group.label)+' <strong>'+rows.filter(x=>x.rule_group_id===group.id).length+'</strong></button>').join('');
-}
 function ordered(){return db.items.filter(x=>x.top_selected).sort((a,b)=>(a.top_rank??999)-(b.top_rank??999))}
 function reviewStatus(x){
  if(x.source_group!=='industry')return 'other';
@@ -335,15 +320,15 @@ function render(){
  if(!db)return;
  const all=db.items, top=ordered(), q=$('search').value.trim().toLowerCase(),g=$('group').value,sf=$('industrySection').value,rg=$('reviewGroup').value;
  for(const id of [...selectedIds])if(!all.some(x=>x.id===id&&x.source_group==='industry'))selectedIds.delete(id);
- $('stats').innerHTML='<div class="stat"><b>'+all.length+'</b><small>현재 회차 연결 후보</small></div><div class="stat"><b>'+top.length+'</b><small>TOP 선정</small></div><div class="stat"><b>'+all.filter(x=>x.source_group==='mfds').length+'</b><small>식약처 원본 후보</small></div><div class="stat"><b>'+(db.run_total??db.runs.length)+'</b><small>이 회차 수집·가져오기 기록</small></div>';
+ $('stats').innerHTML='<div class="stat"><b>'+all.length+'</b><small>전체 자료</small></div><div class="stat"><b>'+all.filter(x=>x.include_detail).length+'</b><small>수록 자료</small></div><div class="stat"><b>'+top.length+'</b><small>TOP 후보</small></div>';
+ $('collectionSummary').textContent='식약처 연결 자료 '+all.filter(x=>x.source_group==='mfds').length+'건 · 수집 기록 '+(db.run_total??db.runs.length)+'회';
  $('editionScope').textContent='현재 회차: '+db.edition.title+' · '+db.edition.period_start+' ~ '+db.edition.period_end+' · 연결 '+all.length+'건 · 날짜 미확인 '+(db.undated_count||0)+'건 · 기간 밖 '+(db.out_of_period_count||0)+'건. 수집 원본 전수 확인 결과는 아니야.';
- showIndustryCounts();
  $('target').value=db.edition.top_target;
- $('targetHint').textContent='선정 '+top.length+'건 / 목표 '+db.edition.top_target+'건. 목표 수로 자동 제외하지 않아.';
+ $('targetHint').textContent='선정 후보 '+top.length+'건 / 출력 상한 '+db.edition.top_target+'건. 동일 기사 중복은 출력에서 제외돼.';
  const counts={recommended:all.filter(x=>reviewStatus(x)==='recommended').length,review:all.filter(x=>reviewStatus(x)==='review').length,other:all.filter(x=>reviewStatus(x)==='other').length,included:all.filter(x=>x.include_detail).length,all:all.length};
  for(const button of document.querySelectorAll('[data-queue]')){
    const key=button.dataset.queue;button.setAttribute('aria-selected',String(queueKind===key));
-   button.textContent={recommended:'추천 후보',review:'추가 검토',other:'그 외',included:'수록 목록',all:'전체'}[key]+' '+counts[key];
+   button.textContent={recommended:'추천 후보',review:'추가 검토',other:'기타 자료',included:'수록 목록',all:'전체'}[key]+' '+counts[key];
  }
  const view=all.filter(x=>queueMatch(x)&&(g==='all'||x.source_group===g)
    &&(sf==='all'||(x.source_group==='industry'&&candidateSection(x)===sf))
@@ -373,7 +358,7 @@ function render(){
  const locked=db.edition.status==='confirmed';
  for(const id of ['runAi','importAi','bulkIncludeSelected','bulkExcludeSelected','bulkApplySections','applyRecommended','saveTarget'])$(id).disabled=locked;
  $('target').disabled=locked;
- $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+'</span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0||locked?'disabled':'')+' aria-label="위로 이동">↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1||locked?'disabled':'')+' aria-label="아래로 이동">↓</button></div>').join('')||'<p class="status">담당자가 선정한 TOP 기사가 없어.</p>';
+ $('top').innerHTML=top.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><span>'+esc(x.title_override??x.title)+'</span><button data-move="-1" data-id="'+esc(x.id)+'" '+(i===0||locked?'disabled':'')+' aria-label="위로 이동">↑</button><button data-move="1" data-id="'+esc(x.id)+'" '+(i===top.length-1||locked?'disabled':'')+' aria-label="아래로 이동">↓</button><button data-remove-top="1" data-id="'+esc(x.id)+'" '+(locked?'disabled':'')+' aria-label="TOP 후보 해제">×</button></div>').join('')||'<p class="status">담당자가 선정한 TOP 기사가 없어.</p>';
  $('runs').innerHTML=db.runs.slice(0,20).map(r=>'<div style="margin:6px 0">'+esc(r.source_key)+' · '+esc(r.status)+' · '+r.records_seen+'건</div>').join('')||'이 회차에 귀속된 수집 이력이 없어. 기존 기록은 임의로 귀속하지 않았어.';
  renderDetail();updateDashboard();
 }
@@ -450,10 +435,9 @@ $('applyRecommended').addEventListener('click',async()=>{
  try{const out=await api('/api/industry/bulk',{mode:'apply_recommended',ids});$('industryFeedback').textContent='추천 수록 '+out.updated+'건 · 기존 편집 보호 '+out.protected+'건';await load()}
  catch(e){$('industryFeedback').textContent=e.message}
 });
-$('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id),j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
+$('top').addEventListener('click',e=>{const btn=e.target.closest('[data-move],[data-remove-top]');if(!btn)return;const ids=ordered().map(x=>x.id),i=ids.indexOf(btn.dataset.id);if(i<0)return;if(btn.hasAttribute('data-remove-top')){ids.splice(i,1);act(()=>api('/api/top-order',{ids}));return;}const j=i+Number(btn.dataset.move);if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];act(()=>api('/api/top-order',{ids}))});
 $('saveTarget').addEventListener('click',()=>act(()=>api('/api/target',{count:Number($('target').value)})));
 [['search','input'],['group','change'],['industrySection','change'],['reviewGroup','change']].forEach(([id,ev])=>$(id).addEventListener(ev,()=>{pageIndex=0;render()}));
-$('reviewGroupCounts').addEventListener('click',e=>{const btn=e.target.closest('[data-group-filter]');if(!btn)return;$('reviewGroup').value=btn.dataset.groupFilter;pageIndex=0;render()});
 $('prevItems').addEventListener('click',()=>{pageIndex=Math.max(0,pageIndex-1);render()});
 $('nextItems').addEventListener('click',()=>{pageIndex++;render()});
 $('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').files[0];if(!file){$('industryFeedback').textContent='GPT 분석 결과 JSON을 먼저 선택해.';return}
@@ -461,7 +445,7 @@ $('importAi').addEventListener('click',async()=>{const file=$('aiJsonFile').file
   const r=await api('/api/ai/import',result);$('industryFeedback').textContent='GPT 제안 '+r.analysed+'건 등록 · 사용자가 수록 버튼을 눌러야 적용돼';await load();}
  catch(e){$('industryFeedback').textContent='GPT JSON 오류: '+e.message}
 });
-const titles={dashboard:'뉴스레터 대시보드',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·최종 확정',settings:'환경설정'};
+const titles={dashboard:'뉴스레터 도서관',collect:'자료 수집',edit:'기사 검토·편집',preview:'미리보기·최종 확정',settings:'환경설정'};
 function openView(name){if(!titles[name])return;
  if(name!=='edit'&&detailDirty&&!confirm('저장하지 않은 기사 편집 내용이 있어. 이동할까?'))return;
  if(name!=='edit')detailDirty=false;
@@ -473,9 +457,6 @@ function openView(name){if(!titles[name])return;
 document.querySelectorAll('[data-view],[data-go]').forEach(x=>x.addEventListener('click',()=>openView(x.dataset.view||x.dataset.go)));
 
 function updateDashboard(){if(!db)return;const ed=db.edition;
- $('dashPeriod').textContent=db.week_label;const n=db.items.length,sel=db.items.filter(x=>x.include_detail).length;
- $('dashCount').textContent=n+'건 / '+sel+'건';$('dashStatus').textContent=ed.status==='confirmed'?'확정 완료':'편집 중';
- $('dashAlert').textContent=db.runs.some(x=>x.status==='partial'||x.status==='failed')?'일부 수집 기록이 미완료·실패 상태야. 원문 검증을 확인해.':'수집과 편집 상태를 확인해.';
  $('headerEdition').textContent=ed.title+' · '+db.week_label+' · '+(ed.status==='confirmed'?'확정':'초안');
  $('finalState').textContent=ed.status==='confirmed'?'확정본 · '+(ed.confirmed_at||''):'미확정 미리보기 · 실제 발송되지 않아';
  $('templateChoice').value=ed.template_id||'classic';
