@@ -66,6 +66,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
     def run_collection(keys, mode, start, end, max_pages, edition):
         try:
             collected_ids=[]
+            with lock:
+                job['new_edition_links']=None
             for key in keys:
                 spec = configured[key]
                 with lock:
@@ -87,7 +89,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             # Preserve existing manual editorial decisions; prepare updates only rule proposals.
             with connect(db_path) as con:
                 rules = yaml.safe_load(editorial_path.read_text(encoding='utf8'))
+                before={x['id'] for x in edition_rows(con,edition)}
                 prepare(con, edition, with_groups(con,rules), extra_ids=collected_ids)
+                after={x['id'] for x in edition_rows(con,edition)}
+                with lock:
+                    job['new_edition_links']=len(after-before)
             with lock:
                 job['state'] = 'finished'
         except Exception as exc:
@@ -155,6 +161,8 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                     with connect(db_path) as con:
                         edition = get_edition(con, active['edition'])
                         items = edition_rows(con, active['edition'])
+                        from .render import top_output_rows
+                        top_output_ids=[x['id'] for x in top_output_rows(items,edition['top_target'])]
                         # Never mix historic global runs or other editions into current counters.
                         runs = [dict(r) for r in con.execute(
                             'SELECT * FROM runs WHERE edition_id=? ORDER BY id DESC LIMIT 30', (active['edition'],))]
@@ -164,7 +172,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                            not edition['period_start'] <= item['published_at'] <= edition['period_end'] for item in items)
                         confirmation = confirm_details(con,active['edition'])
                     self._json({'edition': edition, 'items': items, 'runs': runs,
-                                'confirmation':confirmation,
+                                'confirmation':confirmation,'top_output_ids':top_output_ids,
                                 'week_label':week_label(edition['period_start'],edition['period_end']),
                                 'run_total':total_runs,'undated_count':undated,
                                 'out_of_period_count':out_of_period})
