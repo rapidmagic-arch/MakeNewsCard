@@ -321,7 +321,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
             try:
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 p = urlsplit(self.path).path
-                max_payload = 4_000_000 if p in ('/api/approval/import','/api/branding/save') else (1_000_000 if p == '/api/ai/import' else 100_000)
+                max_payload = 4_200_000 if p == '/api/branding/save' else (4_000_000 if p == '/api/approval/import' else (1_000_000 if p == '/api/ai/import' else 100_000))
                 if not 0 < n <= max_payload:
                     raise ValueError('Bad payload size')
                 obj = json.loads(self.rfile.read(n))
