@@ -36,7 +36,7 @@ window.fetch=async(path,opts)=>{
 </script>'''.replace('PAYLOAD',json.dumps(data,ensure_ascii=False).replace('<','\\u003c'))
 html=html.replace("<script>\n'use strict';",mock+"<script>\n'use strict';")
 with sync_playwright() as p:
-    browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
     page=browser.new_page(viewport={'width':1280,'height':900})
     err=[];page.on('pageerror',lambda e:err.append(str(e)))
     page.set_content(html,wait_until='load')
