@@ -476,6 +476,7 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         if job['state']=='running' or ai_job['state']=='running':
                             raise ValueError('수집 또는 분석 작업 종료 후 재확인하세요.')
                         ed=require_draft(con,active['edition'])
+                        if obj.get('edition_id',ed['id'])!=ed['id']:raise ValueError('작업 회차가 변경되었습니다.')
                         row=next((x for x in edition_rows(con,ed['id']) if x['id']==item_id),None)
                         if row is None or row['source_key'] not in ('medicaltimes','yakup','dailypharm'):
                             raise ValueError('현재 초안의 메디칼타임즈·약업신문·데일리팜 기사를 지원합니다.')
@@ -527,9 +528,16 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                         with connect(db_path) as con:
                             require_draft(con,active['edition'])
                             ed=get_edition(con,active['edition'])
-                            pending={x['id'] for x in edition_rows(con,ed['id']) if x['source_group']=='industry' and not any(x.get(k) is not None for k in ('ai_score','ai_reason','ai_section','ai_summary')) and (not x['published_at'] or ed['period_start']<=x['published_at']<=ed['period_end'])}
+                            rows=edition_rows(con,ed['id'])
+                            known={x['id'] for x in rows}
                             requested=obj.get('ids')
-                            if requested is not None and (not isinstance(requested,list) or any(not isinstance(i,str) for i in requested)):raise ValueError('Invalid review selection')
+                            if requested is not None and (not isinstance(requested,list) or len(requested)>1000 or any(not isinstance(i,str) for i in requested) or len(requested)!=len(set(requested)) or not set(requested)<=known):
+                                raise ValueError('Invalid review selection')
+                            reanalyze=obj.get('reanalyze',False)
+                            if not isinstance(reanalyze,bool):raise ValueError('Invalid reanalysis option')
+                            pending={x['id'] for x in rows if x['source_group']=='industry' and
+                                     (reanalyze or not (x['ai_score'] is not None or x['ai_reason'] is not None or x['ai_section'] is not None or bool(x['ai_summary']))) and
+                                     (not x['published_at'] or ed['period_start']<=x['published_at']<=ed['period_end'])}
                             payload=review_payload(con,ed['id'],sorted(pending if requested is None else pending.intersection(requested)))
                         if not payload['items']:raise ValueError('AI 분석할 언론기사가 없어.')
                         if not ai_configured():raise ValueError('OPENAI_API_KEY가 없어. JSON 내보내기·가져오기를 이용해.')

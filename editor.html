@@ -60,7 +60,7 @@
   <div class="notice" id="editionScope"></div>
   
   <section class="surface review-ai" aria-label="기사 분석">
-    <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3></div><button id="runAi" class="primary">GPT 분석 시작</button></div>
+    <div class="review-step-title"><div><h3>1. 추천 후보 분석</h3></div><button id="runAi" class="primary">GPT 분석 시작</button><label class="checkline"><input type="checkbox" id="reanalyzeAll"> 기존 분석 포함 (선택)</label></div>
     <div class="ai-counts" id="aiCounts"></div><p id="aiJobStatus" class="status" role="status" aria-live="polite"></p>
     <details class="secondary-tools"><summary>수동 분석 (API 미사용)</summary><div class="actions"><a class="button" href="/export/ai" download>1. 분석 대상 다운로드</a><label class="file-drop compact-drop" data-drop-input="aiJsonFile"><span class="drop-title">JSON 선택 또는 끌어놓기</span><input id="aiJsonFile" type="file" accept=".json,application/json" aria-label="GPT 분석 결과 JSON 선택"><span class="drop-filename" aria-live="polite">1MB 이하 · JSON</span></label><button id="importAi">2. 분석 결과 등록</button></div></details>
   </section>
@@ -87,7 +87,7 @@
     <div class="selection-bar">
       <label><input id="selectVisible" type="checkbox"> 현재 페이지 선택</label>
       <span id="selectedCount" class="status" aria-live="polite">선택 0건</span>
-      <div class="inclusion-toggle" role="group" aria-label="선택 기사 수록 여부"><button id="bulkIncludeSelected" type="button" aria-pressed="false">수록</button><button id="bulkExcludeSelected" type="button" aria-pressed="false">제외</button></div>
+      <div class="inclusion-toggle" role="group" aria-label="선택 기사 수록 여부"><button id="bulkIncludeSelected" type="button" aria-pressed="false">수록</button><button id="bulkExcludeSelected" type="button" aria-pressed="false">제외</button></div><button id="bulkRecheck" type="button" disabled>선택 원문 재확인</button>
       
     </div>
     

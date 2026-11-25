@@ -9,7 +9,9 @@ def title_needs_review(row):
     if r.get('source_key') in ('yakup','dailypharm') and re.match(r'^\d{1,2}\s+\S',title):
         # Legacy ranking prefixes are ambiguous: flag for explicit recheck, never strip digits.
         import json
-        try:meta=json.loads(r.get('original_metadata') or '{}')
+        try:
+            raw=r.get('original_metadata') or {}
+            meta=json.loads(raw) if isinstance(raw,str) else raw
         except (ValueError,TypeError):meta={}
         if not isinstance(meta,dict) or meta.get('title_extraction') not in ('dedicated_headline','dedicated_detail_headline'):
             return True
