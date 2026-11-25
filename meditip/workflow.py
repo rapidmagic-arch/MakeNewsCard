@@ -56,6 +56,11 @@ def confirm(con, edition_id, template_path, confirmed_by, issue_number=None, pub
         raise ValueError('기사가 없는 회차는 확정할 수 없어.')
     if not any(x['include_detail'] for x in rows) and not company_output_rows(rows) and not top_output_rows(rows, ed['top_target']):
         raise ValueError('수록하거나 주요 뉴스로 선정된 기사가 없어 확정할 수 없어.')
+    # Never finalize a selected article known to be outside the edition period.
+    selected={r['id']:r for r in rows if r['include_detail']}
+    selected.update((r['id'],r) for r in company_output_rows(rows)+top_output_rows(rows,ed['top_target']))
+    outside=[r for r in selected.values() if r['published_at'] and not ed['period_start']<=r['published_at']<=ed['period_end']]
+    if outside:raise ValueError('수집 기간 밖 발행 자료 '+str(len(outside))+'건: 기사 검토에서 본문·TOP·회사 소식 선정 상태를 확인하세요.')
     when=datetime.now(timezone.utc).isoformat(timespec='seconds')
     try:
         con.execute('BEGIN IMMEDIATE')

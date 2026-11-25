@@ -159,7 +159,78 @@ def fetch_medicaltimes_detail(url):
         return parse_medicaltimes_detail(res.content,res.url)
 
 
+def media_article_id(source,url):
+    p=urlsplit(url)
+    if p.scheme!='https' or p.username or p.password:return None
+    if source=='medicaltimes':return medicaltimes_article_id(url)
+    if source=='yakup' and p.netloc=='www.yakup.com' and p.path=='/news/index.html':
+        q=parse_qs(p.query)
+        ids=q.get('nid',[])
+        return ids[0] if q.get('mode')==['view'] and len(ids)==1 and ids[0].isdecimal() else None
+    if source=='dailypharm' and p.netloc=='www.dailypharm.com':
+        m=re.fullmatch(r'/user/news/(\d+)',p.path)
+        return m.group(1) if m else None
+    return None
+
+def parse_rank_safe_list(content,base,source,section):
+    """Only main list cards confirmed in source markup; ranked/sidebar links are not articles in the requested list."""
+    soup=BeautifulSoup(content,'html.parser');out={}
+    selectors={'yakup':('a[href] .list_div .title_con',' .list_div .name_con .date'),
+               'dailypharm':('a[href] .lin_title',' .lin_data > div:first-child')}
+    title_sel,date_sel=selectors[source]
+    for heading in soup.select(title_sel):
+        a=heading.find_parent('a',href=True)
+        url=urljoin(base,a['href']);sid=media_article_id(source,url)
+        if not sid:continue
+        title=' '.join(heading.get_text(' ',strip=True).split())
+        d=a.select_one(date_sel.strip())
+        published=norm_date(d.get_text(' ',strip=True)) if d else None
+        if not title or len(title)>190:continue
+        row=dict(source_key=source,source_group='industry',section=section,source_id=sid,url=url,
+                 title=title,published_at=published,verification='metadata_only',
+                 relevance='review_needed',mandatory=False,
+                 original_metadata={'discovery_method':'public_list','list_url':base,
+                    'title_extraction':'dedicated_headline','date_extraction':'structured_list_date' if published else 'unknown'})
+        if sid not in out or (published and not out[sid]['published_at']):out[sid]=row
+    return list(out.values())
+
+def parse_media_detail(content,url,source):
+    if source=='medicaltimes':return parse_medicaltimes_detail(content,url)
+    if not media_article_id(source,url):raise ValueError('기사 식별자 확인 필요')
+    soup=BeautifulSoup(content,'html.parser')
+    if source=='yakup':
+        heads=soup.select('.news_view_div .title_con .stitle_con')
+        dates=[x.get_text(' ',strip=True) for x in soup.select('.news_view_div .date_con span')
+               if x.get_text(' ',strip=True).startswith('입력 ')]
+        title=heads[0].get_text(' ',strip=True) if len(heads)==1 else ''
+    else:
+        heads=soup.select('meta[property="og:title"]')
+        dates=[x.get('content','') for x in soup.select('meta[property="article:published_time"]')]
+        title=heads[0].get('content','') if len(heads)==1 else ''
+        canonical=soup.select_one('meta[property="og:url"]')
+        if canonical is None or media_article_id(source,canonical.get('content',''))!=media_article_id(source,url):
+            raise ValueError('원문 기사 식별자 불일치')
+    title=' '.join(title.split())
+    parsed={norm_date(x) for x in dates}
+    if not title or len(title)>190 or len(parsed)!=1 or None in parsed:
+        raise ValueError('원문 제목 또는 명시된 발행일 확인 실패')
+    return {'title':title,'published_at':parsed.pop()}
+
+def fetch_media_detail(url,source):
+    if source=='medicaltimes':return fetch_medicaltimes_detail(url)
+    sid=media_article_id(source,url)
+    if not sid:raise ValueError('지원하지 않는 기사 URL')
+    target=('https://www.yakup.com/news/index.html?mode=view&nid='+sid if source=='yakup'
+            else 'https://www.dailypharm.com/user/news/'+sid)
+    with requests.Session() as session:
+        try:res=get(session,target,urlsplit(target).hostname)
+        except requests.RequestException as exc:raise ValueError('원문 조회 실패: '+type(exc).__name__) from exc
+        if media_article_id(source,res.url)!=sid:raise ValueError('원문 기사 식별자 불일치')
+        return parse_media_detail(res.content,res.url,source)
+
 def parse_public_list(content,base,source_key,source_group,section):
+    if source_key in ('yakup','dailypharm'):
+        return parse_rank_safe_list(content,base,source_key,section)
     if source_key=='medicaltimes':
         return parse_medicaltimes_list(content,base,section)
     soup=BeautifulSoup(content,'html.parser');out={}
@@ -170,11 +241,13 @@ def parse_public_list(content,base,source_key,source_group,section):
         if not title:continue
         surrounding=a.find_parent('tr') or a.find_parent('li') or a.find_parent('article') or a.parent
         date,date_method=_listed_date(surrounding)
+        # Never treat an arbitrary date in a media headline/excerpt as publication metadata.
+        if source_group=='industry' and date_method=='list_context':date,date_method=None,'unknown'
         query=parse_qs(p.query)
         sid=(query.get('seq') or query.get('idxno') or query.get('ID') or query.get('nid') or [None])[0]
         previous=out.get(href)
-        if previous and previous['verification']=='metadata_only' and verification=='needs_title_review':
-            continue  # a later, noisy duplicate link must not replace a cleaner headline
+        if previous and (previous['verification']=='metadata_only',bool(previous['published_at'])) >= (verification=='metadata_only',bool(date)):
+            continue  # equally good or worse duplicate cannot replace the earlier candidate
         out[href]={ 'source_key':source_key,'source_group':source_group,'section':section,
                    'source_id':sid,'url':href,'title':title,'published_at':date,
                    'verification':verification,'relevance':'review_needed',
@@ -297,7 +370,24 @@ def collect_source(con,spec,start,end,mode='board',max_pages=2,delay=1.1,session
         issues.append(type(exc).__name__+': '+str(exc)[:260]);status='failed' if pages==0 else 'partial'
     # Preserve usable earlier pages even if a subsequent page or cross-check fails.
     stats={'new':0,'unchanged':0,'changed':0}
-    item_ids=[save_item(con,item,stats=stats) for item in records]
+    item_ids=[]
+    for item in records:
+        # Keep the established record identity if a unique known article ID is already stored.
+        if key in ('yakup','dailypharm') and item.get('source_id'):
+            existing=con.execute('SELECT * FROM items WHERE source_key=? AND source_id=?',(key,item['source_id'])).fetchall()
+            if len(existing)==1:
+                prior=dict(existing[0]);item['id']=prior['id'];item['url']=prior['url']
+                if json.loads(prior['original_metadata'] or '{}').get('metadata_rechecked'):
+                    item.update(title=prior['title'],published_at=prior['published_at'],verification=prior['verification'],
+                                original_metadata=json.loads(prior['original_metadata']))
+        from .db import record_id
+        iid=item.get('id') or record_id(key,item['url'])
+        previous=con.execute('SELECT title,published_at FROM items WHERE id=?',(iid,)).fetchone()
+        saved=save_item(con,item,stats=stats);item_ids.append(saved)
+        if grp=='industry' and previous and (previous['title']!=item['title'] or previous['published_at']!=item.get('published_at')):
+            con.execute("""UPDATE decisions SET ai_score=NULL,ai_reason=NULL,ai_summary=NULL,ai_section=NULL,
+                           ai_recommended=0,ai_relevance=NULL WHERE item_id=? AND edition_id IN
+                           (SELECT id FROM editions WHERE status='draft')""",(saved,))
     con.commit()
     audit.update(issues=issues,duplicate_rows=duplicate_rows,undated=undated,save_counts=stats)
     log_run(con,key,start,end,status,pages,len(records),audit,edition_id=edition_id)

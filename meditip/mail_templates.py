@@ -41,7 +41,7 @@ def render_outlook_cards(con, edition_id, final=False, preview=False):
     def item_cell(row, top=False):
         summary = effective(row, 'summary')
         title = safe_link(row)
-        origin = row.get('published_at') or row.get('source_key') or '날짜 미확인'
+        origin = row.get('published_at') or source_name(row) or '날짜 미확인'
         if not row.get('published_at') and row.get('source_group') == 'mfds':
             origin = '날짜 미확인'
         prefix = ('<p style="font-size:12px;line-height:18px;color:#65798b;margin:0 0 8px">'

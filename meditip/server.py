@@ -14,13 +14,13 @@ from urllib.parse import urlsplit, parse_qs, quote
 
 import yaml
 
-from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail
+from .collect import collect_source, source_specs, import_approval_bytes, fetch_medicaltimes_detail, fetch_media_detail
 from .company import register_company, set_company_order
 from .branding import public_branding, save_branding, get_branding, IMAGES, save_default_contact
 from .managed_files import ManagedFiles, workspace_for_db, safe_stem
 from .approval_live import fetch_approval, save_live_approval, ensure_single_approval_mode, SPECS as APPROVAL_SPECS
 from .db import connect, edition_rows, ensure_edition, get_edition, log_run
-from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai, repair_medicaltimes_metadata
+from .edition import prepare, set_top_order, update_decision, bulk_industry, import_ai, repair_media_metadata
 from .render import render
 from .mail_templates import TEMPLATES, validate_template_id
 from .workflow import require_draft, confirm, confirmed_html, confirm_details, week_label
@@ -165,21 +165,26 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                 job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     def run_ai_review(payload, edition):
+        def progress(processed,valid,failed):
+            with lock:ai_job.update(processed=processed,valid=valid,failed_count=failed)
         try:
-            proposal = analyze(payload)
+            proposal = analyze(payload,allow_partial=True,on_progress=progress)
             with connect(db_path) as con:
                 if review_payload(con,edition,[x['id'] for x in payload['items']])['input_sha256'] != payload['input_sha256']:
                     raise ValueError('AI 분석 중 원본 후보가 바뀌었어. 다시 분석해.')
-                import_ai(con, edition, proposal)
+                if proposal['items']:
+                    ids=[x['id'] for x in proposal['items']]
+                    subset=review_payload(con,edition,ids)
+                    import_ai(con,edition,{**proposal,'input_sha256':subset['input_sha256']})
             with lock:
-                ai_job.update(state='finished',processed=len(proposal['items']),
-                              result_count=len(proposal['items']))
+                valid=len(proposal['items']);failed=len(proposal['failures'])
+                ai_job.update(state='partial' if valid and failed else 'failed' if failed else 'finished',
+                              processed=len(payload['items']),result_count=valid,failed_count=failed,
+                              error='응답 오류 또는 분류 검증 실패 · 미분석 기사만 다시 실행하세요.' if failed else None)
         except Exception as exc:
-            with lock:
-                ai_job.update(state='failed',error=f'{type(exc).__name__}: {str(exc)[:230]}')
+            with lock:ai_job.update(state='failed',error=f'{type(exc).__name__}: {str(exc)[:230]}')
         finally:
-            with lock:
-                ai_job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
+            with lock:ai_job['finished_at']=datetime.now(timezone.utc).isoformat(timespec='seconds')
 
     class Handler(BaseHTTPRequestHandler):
         def _respond(self, status, body, content_type='application/json; charset=utf-8', download=None):
@@ -472,15 +477,15 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             raise ValueError('수집 또는 분석 작업 종료 후 재확인하세요.')
                         ed=require_draft(con,active['edition'])
                         row=next((x for x in edition_rows(con,ed['id']) if x['id']==item_id),None)
-                        if row is None or row['source_key']!='medicaltimes':
-                            raise ValueError('현재 초안의 메디칼타임즈 기사만 지원합니다.')
+                        if row is None or row['source_key'] not in ('medicaltimes','yakup','dailypharm'):
+                            raise ValueError('현재 초안의 메디칼타임즈·약업신문·데일리팜 기사를 지원합니다.')
                     # Network request outside the write lock; verify state again before writing.
-                    metadata=fetch_medicaltimes_detail(row['url'])
+                    metadata=(fetch_medicaltimes_detail(row['url']) if row['source_key']=='medicaltimes' else fetch_media_detail(row['url'],row['source_key']))
                     with lock, connect(db_path) as con:
                         if active['edition']!=ed['id'] or job['state']=='running' or ai_job['state']=='running':
                             raise ValueError('작업 회차 또는 수집 상태가 변경되었습니다. 다시 확인하세요.')
                         rules=yaml.safe_load(editorial_path.read_text(encoding='utf8'))
-                        result=repair_medicaltimes_metadata(con,ed['id'],item_id,row['content_sha'],metadata,with_groups(con,rules))
+                        result=repair_media_metadata(con,ed['id'],item_id,row['content_sha'],metadata,with_groups(con,rules))
                     self._json({'ok':True,**result})
                     return
                 if p == '/api/edition/select':
@@ -521,7 +526,11 @@ def serve(db_path, template_path, editor_path, edition_id, port=8765,
                             self._json({'error':'수집 또는 AI 분석이 이미 진행 중입니다.'},409);return
                         with connect(db_path) as con:
                             require_draft(con,active['edition'])
-                            payload=review_payload(con,active['edition'],obj.get('ids'))
+                            ed=get_edition(con,active['edition'])
+                            pending={x['id'] for x in edition_rows(con,ed['id']) if x['source_group']=='industry' and not any(x.get(k) is not None for k in ('ai_score','ai_reason','ai_section','ai_summary')) and (not x['published_at'] or ed['period_start']<=x['published_at']<=ed['period_end'])}
+                            requested=obj.get('ids')
+                            if requested is not None and (not isinstance(requested,list) or any(not isinstance(i,str) for i in requested)):raise ValueError('Invalid review selection')
+                            payload=review_payload(con,ed['id'],sorted(pending if requested is None else pending.intersection(requested)))
                         if not payload['items']:raise ValueError('AI 분석할 언론기사가 없어.')
                         if not ai_configured():raise ValueError('OPENAI_API_KEY가 없어. JSON 내보내기·가져오기를 이용해.')
                         ai_job.clear()
