@@ -86,3 +86,58 @@ def test_recheck_legacy_retains_selection_and_frozen_snapshot(tmp_path):
             assert TITLE in h and '2 '+TITLE not in h and '약업신문' in h
         with pytest.raises(ValueError,match='기간 밖'):confirm(con,'draft',TEMPLATE,'담당자')
         assert confirmed_html(con,'archive')==frozen
+
+def test_partial_job_real_http_retry(monkeypatch,tmp_path):
+    import re
+    import socket
+    import threading
+    import time
+    import requests
+    import meditip.server as server
+    from meditip.lifecycle import DesktopLifecycle
+    monkeypatch.setenv('OPENAI_API_KEY','test-only')
+    db=tmp_path/'data'/'newsletter.db'
+    with connect(db) as con:
+        setup(con);ensure_edition(con,'w','2026-11-16','2026-11-22')
+        ids=[save_item(con,dict(source_key='dailypharm',source_group='industry',section='industry.unclassified',
+          title='테스트 기사 '+str(i),url='https://www.dailypharm.com/user/news/'+str(700+i),published_at='2026-11-17')) for i in range(2)]
+        con.commit();prepare(con,'w')
+    calls=[]
+    def fake(messages,schema,model):
+        batch=json.loads(messages[1]['content']);calls.append([x['id'] for x in batch])
+        return json.dumps({'items':[dict(id=x['id'],section='mfds.press' if len(calls)==1 and x['id']==ids[1] else 'industry.rnd',
+               score=80,recommended=True,relevance='relevant',reason='제안',summary='요약') for x in batch]})
+    monkeypatch.setattr('meditip.ai_review._call_api',fake)
+    life=DesktopLifecycle()
+    with socket.socket() as s:
+        s.bind(('127.0.0.1',0));port=s.getsockname()[1]
+    def worker():
+        try:server.serve(db,TEMPLATE,ROOT/'editor.html','w',port,lifecycle=life)
+        except Exception as e:life.complete(e)
+        else:life.complete()
+    thread=threading.Thread(target=worker,daemon=True);thread.start()
+    assert life.ready.wait(5) and life.error is None
+    base=f'http://127.0.0.1:{port}'
+    try:
+        token=re.search(r'name="local-token" content="([^"]+)"',requests.get(base,timeout=3).text).group(1)
+        headers={'X-Local-Token':token}
+        def run():
+            res=requests.post(base+'/api/ai/review',json={'ids':ids},headers=headers,timeout=3)
+            assert res.status_code==202,res.text
+            for _ in range(100):
+                job=requests.get(base+'/api/ai/job',timeout=3).json()
+                if job['state']!='running':return job
+                time.sleep(.05)
+            raise AssertionError('AI job timeout')
+        first=run()
+        assert first['state']=='partial' and first['result_count']==1 and first['failed_count']==1
+        second=run()
+        assert second['state']=='finished' and second['result_count']==1
+        assert calls[1]==[ids[1]]
+        rows=requests.get(base+'/api/edition',timeout=3).json()['items']
+        assert all(x['ai_score']==80 and not x['include_detail'] for x in rows)
+    finally:
+        for _ in range(100):
+            if life.request_stop():break
+            time.sleep(.05)
+        thread.join(5)

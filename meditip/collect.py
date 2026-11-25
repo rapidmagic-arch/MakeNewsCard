@@ -230,11 +230,16 @@ def fetch_media_detail(url,source):
 
 def parse_public_list(content,base,source_key,source_group,section):
     if source_key in ('yakup','dailypharm'):
-        return parse_rank_safe_list(content,base,source_key,section)
+        dedicated=parse_rank_safe_list(content,base,source_key,section)
+        if dedicated:return dedicated
+        # Compatibility for explicit article containers only, never the ranked sidebar.
+        # A changed list shape with no article containers remains a collection warning.
     if source_key=='medicaltimes':
         return parse_medicaltimes_list(content,base,section)
     soup=BeautifulSoup(content,'html.parser');out={}
     for a in soup.find_all('a',href=True):
+        if source_key in ('yakup','dailypharm'):
+            if a.find_parent('article') is None or a.select_one('.num_td') or any(n.get_text(strip=True).isdigit() for n in a.find_all('span',recursive=False)[:1]):continue
         href=urljoin(base,a['href']);p=urlparse(href)
         if p.hostname!=urlparse(base).hostname or not ARTICLE_RE.search(href):continue
         title, verification, raw_link_text = _linked_title(a)
