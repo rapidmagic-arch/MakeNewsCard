@@ -94,3 +94,7 @@
 - Resolve rank row flex/grid conflict and normalize spacing, buttons, status chip and file drop geometry. Browser test checks actual computed styles, rather than only presence of DOM nodes.
 - Default contacts are independently persisted in newsletter_branding, with regression coverage for unchanged active publishing settings and reopen. Explorer uses explicit executable; actual visible Explorer window in end user's desktop session is not verified by headless CI. Copy path fallback provided.
 - Edition creation client-side input validation and inline response message; screenshot alone does not identify the specific historical HTTP 400 cause. Preview sandbox is intentionally retained; browser console's blocked-script message does not establish a functional defect.
+
+## GPT and source metadata regression
+- Observed actual Yakup list: .list_div .title_con and .name_con .date; ranking uses .num_td and .info_td. Detail: .news_view_div .stitle_con and .date_con span beginning 입력. Dailypharm list: .lin_title and .lin_data first div; rank sidebar uses separate span; detail og:title, og:url, article:published_time. Both example article dates 2026-11-25 were outside 2026-11-16..22. No bulk live crawl, no paid API request in regression.
+- Source-homogeneous JSON schema, partial results, strict IDs, explicit recheck with version retention, unchanged editorial choices, confirmation rejection of known out-of-period selected records, and localized Outlook source labels.

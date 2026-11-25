@@ -84,7 +84,7 @@ def proposal_for(row):
 def bulk_industry(con,edition_id,mode,ids=None,value=None):
     """Explicit human action; preserve individually reviewed fields by default."""
     from .workflow import require_draft
-    require_draft(con,edition_id)
+    edition=require_draft(con,edition_id)
     allowed={'apply_recommended','include','exclude','apply_sections','set_inclusion'}
     if mode not in allowed:raise ValueError('Unknown industry bulk operation')
     rows={r['id']:r for r in edition_rows(con,edition_id) if r['source_group']=='industry'}
@@ -114,7 +114,7 @@ def bulk_industry(con,edition_id,mode,ids=None,value=None):
             if row['detail_reviewed']:
                 reviewed+=1;continue
             rec,_=proposal_for(row)
-            if mode=='apply_recommended' and not rec:
+            if mode=='apply_recommended' and (not rec or not row['published_at'] or not edition['period_start']<=row['published_at']<=edition['period_end']):
                 not_recommended+=1;continue
             include=(mode!='exclude')
             con.execute('UPDATE decisions SET include_detail=?,detail_reviewed=1 WHERE edition_id=? AND item_id=?',
@@ -249,6 +249,7 @@ def import_ai(con,edition_id,payload):
         if payload['input_sha256'] not in hashes:
             raise ValueError('AI analysis references outdated or different source records')
     touched=0
+    validated=[]
     for item in analyses:
         id=item.get('id')
         if id not in rows:raise ValueError('AI output references unknown item: '+str(id))
@@ -260,32 +261,32 @@ def import_ai(con,edition_id,payload):
         if relevance is not None and relevance not in ('relevant','irrelevant','review_needed'):
             raise ValueError('Invalid AI relevance value')
         section=item.get('section')
-        if section and not str(section).startswith({'mfds':'mfds.','industry':'industry.','company':'company.',
-                 'clinical':'clinical.','treatment':'clinical.','drug':'drug.'}.get(rows[id]['source_group'],'__invalid__')):
+        from .ai_review import allowed_sections
+        if section is not None and (not isinstance(section,str) or section not in allowed_sections(rows[id]['source_group'])):
             raise ValueError('AI section incompatible with source group: '+str(id))
-        con.execute('''UPDATE decisions SET ai_score=?,ai_reason=?,ai_summary=?,ai_section=?,ai_recommended=?,ai_relevance=?
-                     WHERE edition_id=? AND item_id=?''',
-                    (score,item.get('reason'),summary,item.get('section'),int(bool(item.get('recommended',False))),relevance,edition_id,id))
-        touched+=1
+        validated.append((score,item.get('reason'),summary,section,int(bool(item.get('recommended',False))),relevance,edition_id,id))
+    con.executemany('''UPDATE decisions SET ai_score=?,ai_reason=?,ai_summary=?,ai_section=?,ai_recommended=?,ai_relevance=?
+                     WHERE edition_id=? AND item_id=?''',validated)
+    touched=len(validated)
     con.commit()
     return touched
 
 
-def repair_medicaltimes_metadata(con,edition_id,item_id,expected_sha,metadata,config=None):
+def repair_media_metadata(con,edition_id,item_id,expected_sha,metadata,config=None):
     """Correct one source record, version it and preserve all human editorial fields."""
     from .workflow import require_draft
-    from .collect import medicaltimes_article_id, norm_date
+    from .collect import media_article_id, norm_date
     ed=require_draft(con,edition_id)
     row=con.execute("""SELECT i.* FROM items i JOIN decisions d ON i.id=d.item_id
                        WHERE d.edition_id=? AND i.id=?""",(edition_id,item_id)).fetchone()
-    if row is None or row['source_key']!='medicaltimes' or not medicaltimes_article_id(row['url']):
-        raise ValueError('현재 회차의 메디칼타임즈 기사만 원문 재확인할 수 있습니다.')
+    if row is None or not media_article_id(row['source_key'],row['url']):
+        raise ValueError('현재 회차의 지원 언론기사만 원문 재확인할 수 있습니다.')
     row=dict(row)
     if row['content_sha']!=expected_sha:raise ValueError('원본이 변경되었습니다. 다시 확인하세요.')
     title=metadata['title'];published=metadata['published_at']
-    if title_needs_review({'source_key':'medicaltimes','title':title}) or not isinstance(published,str) or norm_date(published)!=published:
+    if not isinstance(title,str) or title_needs_review({'source_key':row['source_key'],'title':title,'original_metadata':json.dumps({'title_extraction':'dedicated_detail_headline'})}) or not isinstance(published,str) or norm_date(published)!=published:
         raise ValueError('원문 메타데이터 검증 실패')
-    changed=(title!=row['title'] or published!=row['published_at'] or row['verification']=='needs_title_review')
+    changed=(title!=row['title'] or published!=row['published_at'] or title_needs_review(row))
     prior=json.loads(row['original_metadata'] or '{}')
     updated={**prior,'title_extraction':'dedicated_detail_headline','date_extraction':'explicit_detail_publication',
              'metadata_rechecked':True}
@@ -305,3 +306,6 @@ def repair_medicaltimes_metadata(con,edition_id,item_id,expected_sha,metadata,co
     con.commit()
     return {'title':title,'published_at':published,'changed':changed,
             'out_of_period':not ed['period_start']<=published<=ed['period_end']}
+
+# Keep the historical API name for existing tests and callers.
+repair_medicaltimes_metadata=repair_media_metadata

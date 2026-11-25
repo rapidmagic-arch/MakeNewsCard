@@ -76,6 +76,14 @@ with tempfile.TemporaryDirectory() as tmp:
         expect(page.locator('.queue-row.active .tag-top')).to_have_text('TOP 1 · 출력')
         page.locator('#closeDetail').click()
         page.locator('summary').filter(has_text='회사 소식 등록').click()
+        for field,value in [('companyTitle','임시 제목'),('companyPublisher','임시 출처'),('companyUrl','https://example.org/temp'),('companyDate','2026-11-18'),('companySummary','임시 요약')]:
+            page.locator('#'+field).fill(value)
+        before_count=page.locator('#companyList .rankrow').count()
+        page.locator('#resetCompany').click()
+        for field in ['companyTitle','companyPublisher','companyUrl','companyDate','companySummary']:
+            expect(page.locator('#'+field)).to_have_value('')
+        expect(page.locator('#companyList .rankrow')).to_have_count(before_count)
+        expect(page.locator('#companyStatus')).to_have_text('')
         page.locator('#companyTitle').fill('직접 등록 회사 소식')
         page.locator('#companyPublisher').fill('담당자 자료')
         page.locator('#companyUrl').fill('https://example.org/company')
@@ -84,6 +92,9 @@ with tempfile.TemporaryDirectory() as tmp:
         page.locator('#saveCompany').click()
         expect(page.locator('#companyStatus')).to_have_text('등록 완료')
         expect(page.locator('#companyList .rankrow')).to_have_count(2)
+        expect(page.locator('#companyTitle')).to_be_enabled()
+        assert page.locator('#companyList').evaluate('el=>el.scrollHeight<=el.clientHeight+1')
+        assert page.locator('#companyList').evaluate("el=>getComputedStyle(el).maxHeight")=='none'
         assert page.locator('#companyList .rankrow').first.evaluate('el=>getComputedStyle(el).display')=='grid'
         assert page.locator('#companyList .rankrow>.tag').first.evaluate('el=>el.getBoundingClientRect().width')<100
         assert page.locator('#companyList [data-company-move]').first.evaluate('el=>el.getBoundingClientRect().width')==32
@@ -97,6 +108,8 @@ with tempfile.TemporaryDirectory() as tmp:
         manual.click()
         page.locator('#detailTop').check()
         expect(page.locator('#top .rankrow')).to_have_count(2)
+        assert page.locator('#top').evaluate('el=>el.scrollHeight<=el.clientHeight+1')
+        assert page.locator('#top').evaluate("el=>getComputedStyle(el).maxHeight")=='none'
         page.locator('#top [data-move="1"]').first.click()
         expect(page.locator('[data-queue=top]')).to_have_attribute('aria-selected','true')
         expect(page.locator('.queue-row').first).to_have_attribute('data-id',manual_id)
