@@ -238,12 +238,23 @@ function companyRows(){return (db?.items||[]).filter(x=>x.source_group==='compan
 function renderCompany(){
  const rows=companyRows(),locked=db.edition.status==='confirmed';
  $('companyList').innerHTML=rows.map((x,i)=>'<div class="rankrow"><b class="num">'+(i+1)+'</b><button class="company-open" data-company-open="'+esc(x.id)+'">'+esc(x.title_override??x.title)+'</button><span class="tag '+((x.source_group==='company'?x.include_detail:x.company_selected)?'selected':'tag-neutral')+'">'+((x.source_group==='company'?x.include_detail:x.company_selected)?'수록':'미수록')+'</span><button data-company-move="-1" data-id="'+esc(x.id)+'" '+(locked||i===0?'disabled':'')+' aria-label="위로">↑</button><button data-company-move="1" data-id="'+esc(x.id)+'" '+(locked||i===rows.length-1?'disabled':'')+' aria-label="아래로">↓</button></div>').join('');
- $('saveCompany').disabled=locked;syncApprovalButtons();
- for(const id of ['companyTitle','companyPublisher','companyUrl','companyDate','companySummary'])$(id).disabled=locked;
+ setCompanyControls(locked);syncApprovalButtons();
  $('savePublication').disabled=locked;$('publicationDate').disabled=locked;
 }
 $('companyList').addEventListener('click',async e=>{const open=e.target.closest('[data-company-open]');if(open){openCandidate(open.dataset.companyOpen);$('detailPanel').scrollIntoView({block:'nearest'});return}const btn=e.target.closest('[data-company-move]');if(!btn)return;const ids=companyRows().map(x=>x.id),i=ids.indexOf(btn.dataset.id),j=i+Number(btn.dataset.companyMove);if(i<0||j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];try{await api('/api/company/order',{ids});showRankQueue('company');await load()}catch(err){$('companyStatus').textContent=err.message}});
-$('saveCompany').addEventListener('click',async()=>{try{const result=await api('/api/company/register',{title:$('companyTitle').value,publisher:$('companyPublisher').value,url:$('companyUrl').value,published_at:$('companyDate').value,summary:$('companySummary').value});for(const id of ['companyTitle','companyPublisher','companyUrl','companyDate','companySummary'])$(id).value='';await load();$('companyStatus').textContent='등록 완료';}catch(err){$('companyStatus').textContent=err.message}});
+const companyFieldIds=['companyTitle','companyPublisher','companyUrl','companyDate','companySummary'];
+let companyRegistering=false;
+function setCompanyControls(locked){for(const id of [...companyFieldIds,'saveCompany','resetCompany'])$(id).disabled=locked||companyRegistering}
+function resetCompanyForm(){for(const id of companyFieldIds)$(id).value='';$('companyStatus').textContent=''}
+$('resetCompany').addEventListener('click',()=>{if(companyRegistering||!db||db.edition.status==='confirmed')return;resetCompanyForm();$('companyTitle').focus()});
+$('saveCompany').addEventListener('click',async()=>{
+ if(companyRegistering||!db||db.edition.status==='confirmed')return;
+ companyRegistering=true;setCompanyControls(false);
+ try{await api('/api/company/register',{title:$('companyTitle').value,publisher:$('companyPublisher').value,url:$('companyUrl').value,published_at:$('companyDate').value,summary:$('companySummary').value});
+ resetCompanyForm();await load();$('companyStatus').textContent='등록 완료';
+ }catch(err){$('companyStatus').textContent=err.message}
+ finally{companyRegistering=false;setCompanyControls(db?.edition?.status==='confirmed')}
+});
 $('importApproval').addEventListener('click',async()=>{const file=$('approvalFile').files[0];if(!file||fileError($('approvalFile'),file)){$('approvalStatus').textContent='2.5MB 이하 CSV를 선택하세요.';return}try{const result=await api('/api/approval/import',{kind:$('approvalKind').value,filename:file.name,content:await fileBase64(file)});await load();clearDrop('approvalFile');$('approvalStatus').textContent='등록 '+result.imported+'건 · 제외 '+result.skipped.length+'건'+(result.skipped.length?' · '+result.skipped.slice(0,5).map(x=>x.line+'행: '+x.reason).join(' / '):'')+(result.managed_file?' · 원본 보관 완료':'');}catch(err){$('approvalStatus').textContent=err.message}});
 async function savePublication(){await api('/api/edition/publication',{issue_number:$('issueNumber').value.trim(),publication_date:$('publicationDate').value});publicationDirty=false;await load();refreshPreview()}
 $('savePublication').addEventListener('click',async()=>{try{await savePublication();$('confirmMessage').textContent='발행 정보 저장 완료'}catch(err){$('confirmMessage').textContent=err.message}});
@@ -260,7 +271,7 @@ function render(){
  const outputIds=new Set(db.top_output_ids||[]), outputKnown=Array.isArray(db.top_output_ids);
  $('previewTopState').textContent=outputKnown?'주요 뉴스 '+outputIds.size+'건 출력 · 후보 '+top.length+'건 · 상한 '+db.edition.top_target+'건':'이전 확정본 · TOP 건수 미확인';
  const media=all.filter(x=>x.source_group==='industry'), analysed=media.filter(hasAi);
- $('aiCounts').textContent='언론기사 '+media.length+'건 · GPT 분석 '+analysed.length+'건 · GPT 추천 '+analysed.filter(isSuggested).length+'건 · 미분석 '+media.filter(x=>!hasAi(x)&&!qualityMatch(x,'period')).length+'건 · 기간 밖 '+media.filter(x=>qualityMatch(x,'period')).length+'건';
+ $('aiCounts').textContent='언론기사 '+media.length+'건 · GPT 분석 '+analysed.length+'건 · GPT 추천 '+analysed.filter(x=>Boolean(x.ai_recommended)).length+'건 · 추천 후보 '+analysed.filter(isSuggested).length+'건 · 미분석 '+media.filter(x=>!hasAi(x)&&!qualityMatch(x,'period')).length+'건 · 기간 밖 '+media.filter(x=>qualityMatch(x,'period')).length+'건';
  $('targetHint').textContent='후보 '+top.length+'건 · 실제 출력 '+outputIds.size+'건 · 예비 '+(top.length-outputIds.size)+'건 / 출력 상한 '+db.edition.top_target+'건';
  if(!outputKnown)$('targetHint').textContent='이전 확정본 · 실제 출력은 보존된 HTML에서 확인해.';
  const counts={recommended:all.filter(x=>reviewStatus(x)==='recommended').length,review:all.filter(x=>reviewStatus(x)==='review').length,other:all.filter(x=>reviewStatus(x)==='other').length,institutional:all.filter(x=>reviewStatus(x)==='institutional').length,company:companyRows().length,top:top.length,included:all.filter(x=>x.include_detail).length,all:all.length};
@@ -338,7 +349,7 @@ function renderDetail(){
  $('closeDetail').addEventListener('click',()=>{if(detailDirty&&!confirm('저장하지 않은 편집 내용을 닫을까?'))return;const oldId=detailItemId;detailDirty=false;detailItemId=null;render();[...document.querySelectorAll('[data-open-id]')].find(el=>el.dataset.openId===oldId)?.focus()});
  if(confirmed)return;
  if($('recheckMetadata'))$('recheckMetadata').addEventListener('click',async()=>{const button=$('recheckMetadata');button.disabled=true;$('recheckStatus').textContent='원문 확인 중';try{const result=await api('/api/article/recheck',{item_id:x.id,edition_id:db.edition.id});await load();if(detailItemId===x.id&&$('recheckStatus'))$('recheckStatus').textContent=(result.changed?'원본 메타데이터 갱신 · 기존 발행 편집값 유지 · GPT 제안 재분석 필요':'원문 메타데이터 확인 완료')+(result.out_of_period?' · 수집 기간 밖':'')}catch(e){if(detailItemId===x.id&&$('recheckStatus'))$('recheckStatus').textContent=e.message}finally{if(detailItemId===x.id&&$('recheckMetadata'))$('recheckMetadata').disabled=false}});
- if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;detailDirty=true;counter();$('detailStatus').textContent='GPT 요약을 복사했어. 확인 후 저장을 눌러야 반영돼.'});
+ if(suggestedSummary)$('applyAiSummary').addEventListener('click',()=>{$('detailSummary').value=suggestedSummary;detailDirty=true;counter();$('detailStatus').textContent='요약 복사 완료 · 저장 시 제목·요약만 반영됩니다. 발행 분야와 추천 그룹은 별도입니다.'});
  $('detailInclude').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{include_detail:e.target.checked}})));
  if($('detailCompany'))$('detailCompany').addEventListener('change',e=>act(()=>api('/api/decision',{item_id:x.id,changes:{company_selected:e.target.checked}})));
  $('detailTop').addEventListener('change',e=>{const ids=ordered().map(y=>y.id).filter(id=>id!==x.id);if(e.target.checked)ids.push(x.id);act(()=>api('/api/top-order',{ids}))});
@@ -494,7 +505,7 @@ async function loadSettings(){const r=await fetch('/api/settings');if(!r.ok)thro
  if(!aiReady)$('aiJobStatus').textContent='API 미연결';}
 
 $('runAi').addEventListener('click',async()=>{const reanalyze=$('reanalyzeAll').checked;const ids=industryRows().filter(x=>(reanalyze||!hasAi(x))&&!qualityMatch(x,'period')).map(x=>x.id);
- if(!ids.length){$('aiJobStatus').textContent='분석할 미분석 기사가 없습니다. 기간 밖 기사는 제외됩니다.';return}
+ if(!ids.length){$('aiJobStatus').textContent=reanalyze?'분석 가능한 언론기사가 없습니다. 기간 밖 기사는 제외됩니다.':'분석할 미분석 기사가 없습니다. 재분석하려면 기존 분석 포함을 선택하세요.';return}
  if(!confirm(ids.length+'건을 OpenAI API에 보내 분류 제안을 받을까? API 비용이 발생할 수 있어.'))return;
  try{await api('/api/ai/review',{ids,reanalyze});$('reanalyzeAll').checked=false;lastAi='running';$('runAi').disabled=true;$('aiJobStatus').textContent='GPT 분석 중 · '+ids.length+'건'}
  catch(e){$('aiJobStatus').textContent=e.message}});

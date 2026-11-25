@@ -105,10 +105,20 @@ with sync_playwright() as pl:
     assert page.locator('#clearReviewSelection, #bulkApplySections, #applyRecommended').count()==0
     assert 'GPT 요약을 편집란으로 복사' in page.locator('#detailPanel').inner_text()
     assert page.locator('#detailSection').input_value()=='industry.unclassified'  # proposal is not silently approved
+    groups_before=page.evaluate("JSON.stringify(window.__settings.review_groups)")
     page.locator('#applyAiSummary').click()
     assert page.locator('#detailSummary').input_value()=='GPT 제안 요약(승인 전)'
+    assert page.locator('#detailSection').input_value()=='industry.unclassified'
+    assert '발행 분야와 추천 그룹은 별도' in page.locator('#detailStatus').inner_text()
     page.locator('#saveDetailText').click()
     assert page.evaluate("window.__calls.at(-1).path")=='/api/decision'
+    assert page.evaluate("Object.keys(window.__calls.at(-1).body.changes).sort().join(',')")=='summary_override,title_override'
+    assert page.locator('#detailSection').input_value()=='industry.unclassified'
+    assert page.evaluate("JSON.stringify(window.__settings.review_groups)")==groups_before
+    page.locator('#detailSection').select_option('industry.rnd')
+    assert page.evaluate("window.__calls.at(-1).body.changes.section_override")=='industry.rnd'
+    assert page.evaluate("JSON.stringify(window.__settings.review_groups)")==groups_before
+    assert page.locator('.ai-run-controls').evaluate("el=>el.querySelector('label').getBoundingClientRect().right<=el.querySelector('button').getBoundingClientRect().left")
     assert not errs,errs
     mobile=browser.new_page(viewport={'width':390,'height':844});mobileerrs=[];mobile.on('pageerror',lambda e:mobileerrs.append(str(e)))
     mobile.on('dialog',lambda dialog:dialog.accept())

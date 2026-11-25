@@ -388,7 +388,14 @@ body{background:var(--ui-bg);color:var(--ui-ink)}
 .app-main .selection-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0;align-items:start}
 .app-main .selection-panels>.surface{margin:0;padding:16px;min-width:0;border:1px solid var(--ui-line-soft);box-shadow:none}
 .app-main .selection-panels h3{font-size:15px}
-.app-main .selection-panels #companyList,.app-main .selection-panels #top{max-height:240px;overflow:auto}
+.app-main .selection-panels #companyList,.app-main .selection-panels #top{max-height:none;overflow:visible}
+.app-main .selection-panels #companyList:has(>.rankrow:nth-child(5)),.app-main .selection-panels #top:has(>.rankrow:nth-child(5)){max-height:360px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}
+.app-main .company-form-actions,.app-main .ai-run-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app-main .company-form-actions{margin-top:12px}
+.app-main .review-ai .ai-run-controls{margin-left:auto;justify-content:flex-end;gap:12px}
+.app-main .review-ai .ai-run-controls .checkline{margin:0;align-items:center}
+.app-main .review-ai .ai-run-controls .primary{min-height:40px}
+@media(max-width:600px){.app-main .review-ai .ai-run-controls{margin-left:0;width:100%;justify-content:flex-start}}
 .app-main .selection-panels .rankrow{display:grid;gap:8px;align-items:center;min-height:52px;padding:10px 0}.app-main .selection-panels #companyList .rankrow{grid-template-columns:24px minmax(0,1fr) max-content 32px 32px}
 .app-main .selection-panels #top .rankrow{grid-template-columns:24px minmax(0,1fr) 32px 32px 32px}
 .app-main .selection-panels .rankrow>.tag{flex:none;justify-self:start;width:max-content;max-width:100%;white-space:nowrap}
